@@ -1,0 +1,14 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="ControlPanelIconColor">#006495</Color>
+    <SolidColorBrush x:Key="ControlPanelIconBrush" Color="{StaticResource ControlPanelIconColor}" />
+    <Color x:Key="StyledTextColor">#F0F0F0</Color>
+    <SolidColorBrush x:Key="StyledTextBrush" Color="{StaticResource StyledTextColor}" />
+
+    <!--Audio color indicators-->
+    <Color x:Key="GreenAudioAxisColor">#0AF000</Color>
+    <SolidColorBrush x:Key="GreenAudioAxisBrush" Color="{StaticResource GreenAudioAxisColor}" />
+    <Color x:Key="YellowAudioAxisColor">#A0A000</Color>
+    <SolidColorBrush x:Key="YellowAudioAxisBrush" Color="{StaticResource YellowAudioAxisColor}" />
+    <Color x:Key="RedAudioAxisColor">#F00404</Color>
+    <SolidColorBrush x:Key="RedAudioAxisBrush" Color="{StaticResource RedAudioAxisColor}" />
+</ResourceDictionary>

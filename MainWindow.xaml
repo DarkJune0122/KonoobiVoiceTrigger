@@ -1,12 +1,111 @@
-﻿<Window x:Class="VoiceTrigger.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:VoiceTrigger"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+﻿<ui:FluentWindow
+    x:Class="VoiceTrigger.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
+    xmlns:local="clr-namespace:VoiceTrigger"
+    mc:Ignorable="d"
+    Background="{ui:ThemeResource ApplicationBackgroundBrush}"
+    Closing="Window_HideInstead"
 
+    ExtendsContentIntoTitleBar="True"
+    ResizeMode="NoResize"
+    Title="MainWindow" MinHeight="90" Height="90" MinWidth="560" Width="560">
+    <ui:FluentWindow.Resources>
+        <!--<Style x:Key="TitleButtonStyle" TargetType="ui:Button">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>-->
+    </ui:FluentWindow.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="0" />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="1" VerticalAlignment="Center">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="6" />
+                <RowDefinition Height="4" />
+                <RowDefinition Height="6" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid Margin="4,0,4,0" Grid.Row="0">
+                <Rectangle x:Name="LeftAudioBackground" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <Rectangle x:Name="LeftAudio" Fill="LimeGreen"
+                           HorizontalAlignment="Left" Width="80" VerticalAlignment="Stretch" />
+            </Grid>
+            <Grid Margin="4,0,4,0" Grid.Row="2">
+                <Rectangle x:Name="RightAudioBackground" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <Rectangle x:Name="RightAudio" Fill="LimeGreen"
+                           HorizontalAlignment="Left" Width="80" VerticalAlignment="Stretch" />
+            </Grid>
+            <Grid Margin="8,0,0,0" Grid.Column="1" Grid.RowSpan="3">
+                
+            </Grid>
+            <Grid Margin="8,0,0,0" Grid.Column="2" Grid.RowSpan="3">
+                
+            </Grid>
+        </Grid>
+
+        <!--Title Bar-->
+        <ui:TitleBar Height="35" HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
+                     ShowMaximize="False" ShowMinimize="False" ShowClose="False" ShowHelp="False">
+            <ui:TitleBar.Header>
+                <Grid x:Name="Header" Width="480">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="5" />
+                    </Grid.ColumnDefinitions>
+                    <ui:ImageIcon Grid.Column="0" Source="pack://application:,,,/icon.ico" Margin="4" IsHitTestVisible="False" />
+                    <ui:TextBlock Grid.Column="1" Text="Voice Trigger" VerticalAlignment="Center" IsHitTestVisible="False"
+                                  HorizontalAlignment="Center" Margin="4,0,0,0" FontSize="20" FontFamily="Segoe UI" />
+                    <ui:Button Grid.Column="3" Click="Title_Theme" BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                        <ui:Button.Icon>
+                            <ui:SymbolIcon Symbol="DarkTheme24" Filled="True" />
+                        </ui:Button.Icon>
+                    </ui:Button>
+                    <ui:Button Grid.Column="4" Click="Title_Close" BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                        <ui:Button.Icon>
+                            <ui:SymbolIcon Symbol="Dismiss24" Filled="True" />
+                        </ui:Button.Icon>
+                    </ui:Button>
+                </Grid>
+            </ui:TitleBar.Header>
+        </ui:TitleBar>
+        
+        <!--Tray icon-->
+        <tray:NotifyIcon
+            Grid.Column="0"
+            Grid.Row="2"
+            LeftClick="Icon_RestoreWindow"
+            FocusOnLeftClick="True"
+            MenuOnRightClick="True"
+            TooltipText="IBOK Voice Trigger">
+            <!--Explicit icon-->
+            <tray:NotifyIcon.Icon>
+                <BitmapImage UriSource="pack://application:,,,/icon.ico" />
+            </tray:NotifyIcon.Icon>
+            <!--Context menu-->
+            <tray:NotifyIcon.Menu>
+                <ContextMenu>
+                    <MenuItem Header="Open" Click="Icon_Open" />
+                    <Separator />
+                    <MenuItem Header="Exit" Click="Icon_Exit" />
+                </ContextMenu>
+            </tray:NotifyIcon.Menu>
+        </tray:NotifyIcon>
     </Grid>
-</Window>
+</ui:FluentWindow>
