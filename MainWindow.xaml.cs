@@ -26,16 +26,17 @@ public partial class MainWindow : FluentWindow
 
     private void HandleVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        App.OnCapturedVolume -= ProcessAudioEndPoint;
+        App.OnCapturedVolume -= ProcessAudio;
         if (IsVisible)
         {
-            App.OnCapturedVolume += ProcessAudioEndPoint;
+            App.OnCapturedVolume += ProcessAudio;
         }
     }
 
-    private void ProcessAudioEndPoint(AudioMeterInformation meter)
+    private void ProcessAudio(float master)
     {
-        Console.WriteLine($"TICK! {meter.MasterPeakValue}");
+        Console.WriteLine($"TICK! {master}");
+        Dispatcher.Invoke(() => SetVolume(master));
         //float[] channels = ArrayPool<float>.Shared.Rent(2);
         //int count = meter.MasterPeakValue;
         //switch (count)
@@ -58,6 +59,30 @@ public partial class MainWindow : FluentWindow
         //        else goto case 0;
         //}
     }
+    /*
+Microphone (2- Fifine Microphone)
+Active
+32 bit IEEFloat: 48000Hz 1 channels
+Shared
+Bytes: 3840
+Bytes: 0
+Bytes: 0
+Bytes: 0
+     ...
+
+Microphone (Realtek(R) Audio)
+Active
+32 bit IEEFloat: 48000Hz 2 channels
+Shared
+Bytes: 34560
+Bytes: 7680
+Bytes: 11520
+Bytes: 11520
+Bytes: 15360
+TICK! 0
+TICK! 0
+    ...
+     */
 
     private void HandleVolume(bool reset, int count, float[] channels)
     {
