@@ -1,6 +1,7 @@
 ﻿using NAudio.CoreAudioApi;
 using System.Buffers;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -83,28 +84,6 @@ TICK! 0
 TICK! 0
     ...
      */
-
-    private void HandleVolume(bool reset, int count, float[] channels)
-    {
-        float left = 0, right = 0;
-        if (!reset)
-        {
-            if (count == 1)
-            {
-                left = right = channels[0];
-            }
-            else if (count >= 2)
-            {
-                left = channels[0];
-                right = channels[1];
-            }
-        }
-
-        float max = Math.Max(left, right);
-        Console.WriteLine(max);
-        Dispatcher.BeginInvoke(() => SetVolume(max));
-        ArrayPool<float>.Shared.Return(channels);
-    }
 
     void SetVolume(float volume)
     {
@@ -210,5 +189,20 @@ TICK! 0
         {
             Header.Width = Width;
         }
+    }
+
+    private void Title_Settings(object sender, RoutedEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "mmsys.cpl",
+            UseShellExecute = true
+        });
+    }
+
+    private void Window_Activeted(object sender, EventArgs e)
+    {
+        if (DataContext is ViewModel model)
+            model.RefreshDevices();
     }
 }

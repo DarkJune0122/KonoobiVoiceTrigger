@@ -2,7 +2,6 @@
 using NAudio.Wave;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Threading;
 

@@ -8,8 +8,10 @@
     xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
     xmlns:local="clr-namespace:VoiceTrigger"
     mc:Ignorable="d"
+    DataContext="{StaticResource ViewModel}"
     Background="{ui:ThemeResource ApplicationBackgroundBrush}"
     Closing="Window_HideInstead"
+    Activated="Window_Activeted"
 
     ExtendsContentIntoTitleBar="True"
     ResizeMode="NoResize"
@@ -67,17 +69,33 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="5" />
                     </Grid.ColumnDefinitions>
                     <ui:ImageIcon Grid.Column="0" Source="pack://application:,,,/icon.ico" Margin="4" IsHitTestVisible="False" />
                     <ui:TextBlock Grid.Column="1" Text="Voice Trigger" VerticalAlignment="Center" IsHitTestVisible="False"
                                   HorizontalAlignment="Center" Margin="4,0,0,0" FontSize="20" FontFamily="Segoe UI" />
-                    <ui:Button Grid.Column="3" Click="Title_Theme" BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                    <ui:Button Grid.Column="3" Click="Title_Settings" 
+                              BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                        <ui:Button.Icon>
+                            <ui:SymbolIcon Symbol="Settings24" Filled="True" />
+                        </ui:Button.Icon>
+                    </ui:Button>
+                    <ui:Button Grid.Column="4" Command="{Binding ToggleCaptureCommand}"
+                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                        <ui:Button.Icon>
+                            <ui:SymbolIcon Symbol="{Binding AudioCaptureEnabled, Converter={x:Static local:StateToMicrophoneIconConcerter.Instance}}" Filled="True" />
+                        </ui:Button.Icon>
+                    </ui:Button>
+                    <ui:Button Grid.Column="5" Click="Title_Theme"
+                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                         <ui:Button.Icon>
                             <ui:SymbolIcon Symbol="DarkTheme24" Filled="True" />
                         </ui:Button.Icon>
                     </ui:Button>
-                    <ui:Button Grid.Column="4" Click="Title_Close" BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                    <ui:Button Grid.Column="6" Click="Title_Close"
+                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                         <ui:Button.Icon>
                             <ui:SymbolIcon Symbol="Dismiss24" Filled="True" />
                         </ui:Button.Icon>
