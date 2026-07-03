@@ -40,16 +40,24 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+            <!--Indicators-->
             <Grid Margin="4,0,4,0" Grid.Row="0">
-                <Rectangle x:Name="LeftAudioBackground" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-                <Rectangle x:Name="LeftAudio" Fill="LimeGreen"
-                           HorizontalAlignment="Left" Width="80" VerticalAlignment="Stretch" />
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={x:Static local:DoubleToPercentConverter.Instance}}"/>
+                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={x:Static local:DoubleToRemainingPercentConverter.Instance}}"/>
+                </Grid.ColumnDefinitions>
+                <Rectangle Grid.Column="0" Fill="LimeGreen" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <Rectangle Grid.Column="1" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
             </Grid>
             <Grid Margin="4,0,4,0" Grid.Row="2">
-                <Rectangle x:Name="RightAudioBackground" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-                <Rectangle x:Name="RightAudio" Fill="LimeGreen"
-                           HorizontalAlignment="Left" Width="80" VerticalAlignment="Stretch" />
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={x:Static local:DoubleToPercentConverter.Instance}}"/>
+                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={x:Static local:DoubleToRemainingPercentConverter.Instance}}"/>
+                </Grid.ColumnDefinitions>
+                <Rectangle Grid.Column="0" Fill="LimeGreen" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <Rectangle Grid.Column="1" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
             </Grid>
+            <!--Content-->
             <Grid Margin="8,0,0,0" Grid.Column="1" Grid.RowSpan="3">
                 
             </Grid>
@@ -62,11 +70,13 @@
         <ui:TitleBar Height="35" HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
                      ShowMaximize="False" ShowMinimize="False" ShowClose="False" ShowHelp="False">
             <ui:TitleBar.Header>
-                <Grid x:Name="Header" Width="480">
+                <Grid x:Name="Header" Width="560">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -76,25 +86,30 @@
                     <ui:ImageIcon Grid.Column="0" Source="pack://application:,,,/icon.ico" Margin="4" IsHitTestVisible="False" />
                     <ui:TextBlock Grid.Column="1" Text="Voice Trigger" VerticalAlignment="Center" IsHitTestVisible="False"
                                   HorizontalAlignment="Center" Margin="4,0,0,0" FontSize="20" FontFamily="Segoe UI" />
-                    <ui:Button Grid.Column="3" Click="Title_Settings" 
-                              BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                    <!--Spacing-->
+                    <Rectangle Grid.Column="3" Fill="Red" MinWidth="8" MinHeight="8"
+                               Visibility="{Binding Triggered, Converter={x:Static local:BoolToVisibilityConverter.Instance}}"/>
+                    <Rectangle Grid.Column="4" Fill="Yellow" MinWidth="8" MinHeight="8"
+                               Visibility="{Binding IsVolumeActivated, Converter={x:Static local:BoolToVisibilityConverter.Instance}}"/>
+                    <ui:Button Grid.Column="5" Click="Title_Settings" 
+                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                         <ui:Button.Icon>
                             <ui:SymbolIcon Symbol="Settings24" Filled="True" />
                         </ui:Button.Icon>
                     </ui:Button>
-                    <ui:Button Grid.Column="4" Command="{Binding ToggleCaptureCommand}"
+                    <ui:Button Grid.Column="6" Command="{Binding ToggleCaptureCommand}"
                                BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                         <ui:Button.Icon>
                             <ui:SymbolIcon Symbol="{Binding AudioCaptureEnabled, Converter={x:Static local:StateToMicrophoneIconConcerter.Instance}}" Filled="True" />
                         </ui:Button.Icon>
                     </ui:Button>
-                    <ui:Button Grid.Column="5" Click="Title_Theme"
+                    <ui:Button Grid.Column="7" Click="Title_Theme"
                                BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                         <ui:Button.Icon>
                             <ui:SymbolIcon Symbol="DarkTheme24" Filled="True" />
                         </ui:Button.Icon>
                     </ui:Button>
-                    <ui:Button Grid.Column="6" Click="Title_Close"
+                    <ui:Button Grid.Column="8" Click="Title_Close"
                                BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                         <ui:Button.Icon>
                             <ui:SymbolIcon Symbol="Dismiss24" Filled="True" />

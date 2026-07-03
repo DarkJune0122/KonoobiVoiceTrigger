@@ -9,6 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Cubism\**" />
+    <EmbeddedResource Remove="Cubism\**" />
+    <None Remove="Cubism\**" />
+    <Page Remove="Cubism\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="icon.ico" />
   </ItemGroup>
 
