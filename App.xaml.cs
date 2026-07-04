@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Windows;
 
 namespace VoiceTrigger;
 /// <summary>
@@ -18,7 +17,10 @@ public partial class App : Application
             Shutdown();
             return;
         }
-        
+
+        //VTubeStudioDiscovery.Instance.Start();
+        VTubeStudio.Instance.Start();
+
         //ViewModel = (ViewModel)Current.Resources[nameof(ViewModel)];
         //MainWindow = new MainWindow { DataContext = ViewModel };
         //MainWindow.Show();
@@ -27,5 +29,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         base.OnExit(e);
+        //VTubeStudioDiscovery.Instance.Stop();
+        VTubeStudio.Instance.Stop();
     }
 }

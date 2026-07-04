@@ -1,11 +1,6 @@
-﻿using NAudio.CoreAudioApi;
-using System.Buffers;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
-using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Threading;
 using VoiceTrigger.Services;
 using Wpf.Ui.Controls;
 using Wpf.Ui.Tray.Controls;
