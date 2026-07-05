@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO;
 
 namespace VoiceTrigger;
 /// <summary>
@@ -6,6 +7,20 @@ namespace VoiceTrigger;
 /// </summary>
 public partial class App : Application
 {
+    public static readonly string LocalAppDataFolder
+        = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sandcorp", "Voice Trigger");
+    static App()
+    {
+        try
+        {
+            Directory.CreateDirectory(LocalAppDataFolder);
+        }
+        catch (Exception ex)
+        {
+            ex.Out($"File access is restricted. Information won't save between sessions.\n");
+        }
+    }
+
     public static ViewModel ViewModel { get; private set; } = null!;
     protected override void OnStartup(StartupEventArgs e)
     {

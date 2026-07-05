@@ -7,10 +7,10 @@ public abstract class VTSResponsePacket : VTSPacket
 {
     [JsonPropertyName("timestamp")] public virtual long Timestamp { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix, bool newLine = DefaultNewLine)
+    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     {
-        base.ToString(b, prefix, false);
-        Append(b, prefix, Timestamp, newLine);
+        base.ToString(b, prefix).AppendLine();
+        Append(b, prefix, Timestamp);
         return b;
     }
 }

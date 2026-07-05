@@ -8,10 +8,10 @@ public abstract class VTSRequest<TData> : VTSRequestPacket
 {
     [JsonPropertyName("data")] public required TData? Data { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix, bool newLine = DefaultNewLine)
+    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     {
-        base.ToString(b, prefix, false);
-        AppendLine(b, prefix, Data);
-        return AppendData(b, prefix, Data, newLine);
+        base.ToString(b, prefix).AppendLine();
+        AppendData(b, prefix, Data);
+        return b;
     }
 }

@@ -8,9 +8,9 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Windows.Markup;
+using System.Threading.Channels;
+using System.Windows.Media.Animation;
 using VoiceTrigger.VTS.Packets;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace VoiceTrigger;
 
@@ -117,9 +117,6 @@ public sealed partial class VTubeStudioDiscovery : ObservableObject
                     VTSWindowTitle = data.WindowTitle ?? string.Empty;
                     OnInformationUpdated?.Invoke(this);
                 });
-
-                $"{this} Discovery succeeded. Increasing delays between checks.".Out();
-                await Task.Delay(1000);
             }
             catch (Exception ex)
             {
@@ -163,12 +160,12 @@ public sealed class VTSDiscoveryResponseData : VTSPacketData
     [JsonPropertyName("instanceID")] public string? InstanceID { get; set; }
     [JsonPropertyName("windowTitle")] public string? WindowTitle { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix, bool newLine = DefaultNewLine)
+    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     {
-        Append(b, prefix, Active);
-        Append(b, prefix, Port);
-        Append(b, prefix, InstanceID);
-        Append(b, prefix, WindowTitle, newLine);
+        AppendLine(b, prefix, Active);
+        AppendLine(b, prefix, Port);
+        AppendLine(b, prefix, InstanceID);
+        Append(b, prefix, WindowTitle);
         return b;
     }
 }
@@ -184,6 +181,14 @@ public sealed class VTSAPIStateResposeData : VTSPacketData
     [JsonPropertyName("active")] public bool Active { get; set; }
     [JsonPropertyName("vTubeStudioVersion")] public string? VTubeStudioVersion { get; set; }
     [JsonPropertyName("currentSessionAuthenticated")] public bool CurrentSessionAuthenticated { get; set; }
+
+    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    {
+        AppendLine(b, prefix, Active);
+        AppendLine(b, prefix, VTubeStudioVersion);
+        Append(b, prefix, CurrentSessionAuthenticated);
+        return b;
+    }
 }
 
 public sealed class VTSAuthenticationTokenRequest : VTSRequest<VTSAuthenticationTokenRequestData>
@@ -196,13 +201,11 @@ public sealed class VTSAuthenticationTokenRequestData : VTSPacketData
     [JsonPropertyName("pluginDeveloper")] public required string? PluginDeveloper { get; set; }
     [JsonPropertyName("pluginIcon")] public required string? PluginIcon { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix, bool newLine = DefaultNewLine)
+    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     {
-        b.Append(prefix); b.Append($"{nameof(PluginName)}: "); b.AppendLine(PluginName);
-        b.Append(prefix); b.Append($"{nameof(Port)}: "); b.AppendLine(Port.ToString());
-        b.Append(prefix); b.Append($"{nameof(InstanceID)}: "); b.AppendLine(InstanceID);
-        b.Append(prefix); b.Append($"{nameof(WindowTitle)}: "); b.Append(WindowTitle);
-        if (newLine) b.AppendLine();
+        AppendLine(b, prefix, PluginName);
+        AppendLine(b, prefix, PluginDeveloper);
+        Append(b, prefix, PluginIcon);
         return b;
     }
 }
@@ -210,7 +213,17 @@ public sealed class VTSAuthenticationTokenRequestData : VTSPacketData
 public sealed class VTSAuthenticationTokenResponse : VTSResponse<VTSAuthenticationTokenResponseData>;
 public sealed class VTSAuthenticationTokenResponseData : VTSPacketData
 {
-    [JsonPropertyName("authenticationToken")] public bool Active { get; set; }
+    [JsonPropertyName("authenticationToken")] public string? AuthenticationToken { get; set; }
+    [JsonPropertyName("errorID")] public long ErrorID { get; set; }
+    [JsonPropertyName("message")] public string? Message { get; set; }
+
+    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    {
+        AppendLine(b, prefix, AuthenticationToken);
+        AppendLine(b, prefix, ErrorID);
+        Append(b, prefix, Message);
+        return b;
+    }
 }
 
 public sealed class VTSAPIErrorResponse : VTSResponse<VTSAPIErrorResponseData>;
@@ -218,6 +231,13 @@ public sealed class VTSAPIErrorResponseData : VTSPacketData
 {
     [JsonPropertyName("errorID")] public long ErrorID { get; set; }
     [JsonPropertyName("message")] public string? Message { get; set; }
+
+    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    {
+        AppendLine(b, prefix, ErrorID);
+        Append(b, prefix, Message);
+        return b;
+    }
 }
 
 public sealed class VTSAuthenticationRequest : VTSRequest<VTSAuthenticationRequestData>
@@ -229,13 +249,72 @@ public sealed class VTSAuthenticationRequestData : VTSPacketData
     [JsonPropertyName("pluginName")] public required string? PluginName { get; set; }
     [JsonPropertyName("pluginDeveloper")] public required string? PluginDeveloper { get; set; }
     [JsonPropertyName("authenticationToken")] public required string? AuthenticationToken { get; set; }
+
+    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    {
+        AppendLine(b, prefix, PluginName);
+        AppendLine(b, prefix, PluginDeveloper);
+        Append(b, prefix, AuthenticationToken);
+        return b;
+    }
 }
 
 public sealed class VTSAuthenticationResponse : VTSResponse<VTSAuthenticationResponseData>;
 public sealed class VTSAuthenticationResponseData : VTSPacketData
 {
-    [JsonPropertyName("authenticated")] public required string? Authenticated { get; set; }
+    [JsonPropertyName("authenticated")] public required bool Authenticated { get; set; }
     [JsonPropertyName("reason")] public required string? Reason { get; set; }
+
+    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    {
+        AppendLine(b, prefix, Authenticated);
+        Append(b, prefix, Reason);
+        return b;
+    }
+}
+
+public sealed class VTSModelHotkeysRequest : VTSRequest<VTSModelHotkeysRequestData>
+{
+    public override string? MessageType { get; set; } = "HotkeysInCurrentModelResponse";
+}
+public sealed class VTSModelHotkeysRequestData : VTSPacketData
+{
+    [JsonPropertyName("modelLoaded")] public required bool ModelLoaded { get; set; }
+    [JsonPropertyName("modelName")] public required string? ModelName { get; set; }
+    [JsonPropertyName("modelID")] public required string? ModelID { get; set; }
+    [JsonPropertyName("availableHotkeys")] public required Hotkey[]? AvailableHotkeys { get; set; }
+
+    public readonly struct Hotkey : IVTSFormattable
+    {
+        [JsonPropertyName("name")] public required string Name { get; init; }
+        [JsonPropertyName("type")] public required string Type { get; init; }
+        [JsonPropertyName("description")] public required string Description { get; init; }
+        [JsonPropertyName("file")] public required string File { get; init; }
+        [JsonPropertyName("hotkeyID")] public required string HotkeyID { get; init; }
+        [JsonPropertyName("onScreenButtonID")] public required string OnScreenButtonID { get; init; }
+
+        public override string ToString() => ToString(b: new()).ToString();
+        public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
+        public StringBuilder ToString(StringBuilder b, string prefix = VTSHelpers.DefaultPrefix)
+        {
+            VTSHelpers.AppendLine(b, prefix, Name);
+            VTSHelpers.AppendLine(b, prefix, Type);
+            VTSHelpers.AppendLine(b, prefix, Description);
+            VTSHelpers.AppendLine(b, prefix, File);
+            VTSHelpers.AppendLine(b, prefix, HotkeyID);
+            VTSHelpers.Append(b, prefix, OnScreenButtonID);
+            return b;
+        }
+    }
+
+    public override StringBuilder ToString(StringBuilder b, string prefix = "")
+    {
+        AppendLine(b, prefix, ModelLoaded);
+        AppendLine(b, prefix, ModelName);
+        AppendLine(b, prefix, ModelID);
+        AppendList(b, prefix, AvailableHotkeys);
+        return b;
+    }
 }
 
 public sealed partial class VTubeStudio : ObservableObject
@@ -248,10 +327,11 @@ public sealed partial class VTubeStudio : ObservableObject
     [ObservableProperty] public partial ConnectionStatus Status { get; private set; }
     [ObservableProperty] public partial string AccessToken { get; private set; } = string.Empty;
 
+    readonly Channel<object?> SendChannel = Channel.CreateUnbounded<object?>();
     CancellationTokenSource? Identity;
 
     [RelayCommand] public void Start() => Application.Current.Dispatcher.Invoke(StartImmediate);
-    public void StartImmediate()
+    void StartImmediate()
     {
         if (Status != ConnectionStatus.Offline) return;
         try
@@ -268,7 +348,7 @@ public sealed partial class VTubeStudio : ObservableObject
     }
 
     [RelayCommand] public void Stop() => Application.Current.Dispatcher.Invoke(StopImmediate);
-    public void StopImmediate()
+    void StopImmediate()
     {
         if (Status == ConnectionStatus.Offline) return;
         try
@@ -288,6 +368,25 @@ public sealed partial class VTubeStudio : ObservableObject
         }
     }
 
+    [RelayCommand] public void Send(object data)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        Application.Current.Dispatcher.Invoke(() => SendImmediate(data));
+    }
+    void SendImmediate(object data)
+    {
+        if (Status != ConnectionStatus.Online) return;
+        try
+        {
+            SendChannel.Writer.TryWrite(data);
+        }
+        catch (Exception ex)
+        {
+            ex.Out();
+        }
+    }
+
+
     private async void Communication(CancellationTokenSource identity)
     {
         VTubeStudioDiscovery.Instance.Request(this);
@@ -295,6 +394,15 @@ public sealed partial class VTubeStudio : ObservableObject
         VTSSocket? socket = null;
         try
         {
+            // Reads app icon as Base64 to use as plugin preview.
+            string image = string.Empty;
+            string imageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.png");
+            if (File.Exists(imageFile))
+            {
+                byte[] bytes = await File.ReadAllBytesAsync(imageFile);
+                image = Convert.ToBase64String(bytes);
+            }
+
             // Fetches Port from a discovery server.
             TaskCompletionSource<ushort> PortSource = new();
             Application.Current.Dispatcher.Invoke(() =>
@@ -327,15 +435,6 @@ public sealed partial class VTubeStudio : ObservableObject
             Uri uri = new($"ws://localhost:{PortSource.Task.Result}");
             $"{this} URI Constructed successfully: {uri}".Out();
 
-            // Reads app icon as Base64 to use as plugin preview.
-            string image = string.Empty;
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico");
-            if (File.Exists(path))
-            {
-                byte[] bytes = await File.ReadAllBytesAsync(path);
-                image = Convert.ToBase64String(bytes);
-            }
-
             // Establishes connection with a server.
             socket = new VTSSocket(identity, new());
             await socket.ConnectAsync(uri, token);
@@ -344,20 +443,120 @@ public sealed partial class VTubeStudio : ObservableObject
 
             // Initial connection.
             {
-                const string RequestID = "ConnectionRequest";
+                string RequestID = $"ConnectionRequest{Random.Shared.Next():X8}";
                 // Receive command should always be initialized first.
                 var response = socket.ReceiveAsync<VTSAPIStateResponse>();
-                await socket.SendAsync(new VTSAPIStateRequestData { RequestID = RequestID });
+                await socket.SendAsync(new VTSAPIStateRequest()
+                {
+                    RequestID = RequestID,
+                    Data = null
+                });
                 var packet = await response;
                 $"Received {RequestID} result:\n{packet}".Out(ConsoleColor.Cyan);
             }
 
+            // Using an existing token, if possible.
+            bool authenticated = false;
+            string authFile = Path.Combine(App.LocalAppDataFolder, "auth");
+            token.ThrowIfCancellationRequested();
+            if (File.Exists(authFile))
+            {
+                $"Restoring session from previous auth token...".Out();
+                string auth;
+                try
+                {
+                    auth = await File.ReadAllTextAsync(authFile);
+                    authenticated = true;
+                }
+                catch (Exception ex)
+                {
+                    ex.Out($"Cannot read authentication token from '{authFile}'. New session auth token will be requested.\n");
+                    goto TokenRestoreEnd;
+                }
+
+                string RequestID = $"ConnectionRequest{Random.Shared.Next():X8}";
+                var response = socket.ReceiveAsync<VTSAuthenticationResponse>();
+                await socket.SendAsync(new VTSAuthenticationRequest()
+                {
+                    RequestID = RequestID,
+                    Data = new()
+                    {
+                        PluginName = "Voice Trigger",
+                        PluginDeveloper = "SANDCorp, SoG",
+                        AuthenticationToken = auth,
+                    }
+                });
+                var packet = await response;
+                if (packet?.Data?.Authenticated == true)
+                {
+                    $"Plugin re-authentication successful! Previous session has been restored.".Out(ConsoleColor.Green);
+                }
+                else
+                {
+                    $"Cannot restore previous session from a response:\n{packet}".Out(ConsoleColor.Yellow);
+                }
+
+                TokenRestoreEnd:;
+            }
+
             // Authentication.
+            token.ThrowIfCancellationRequested();
+            if (!authenticated)
+            {
+                $"Aquiring new Authentication Token...".Out();
+                string RequestID = $"AuthTokenRequest{Random.Shared.Next():X8}";
+                var response = socket.ReceiveAsync<VTSAuthenticationTokenResponse>();
+                await socket.SendAsync(new VTSAuthenticationTokenRequest()
+                {
+                    RequestID = RequestID,
+                    Data = new()
+                    {
+                        PluginName = "Voice Trigger",
+                        PluginDeveloper = "SANDCorp, SoG",
+                        PluginIcon = image
+                    }
+                });
+                var packet = await response;
+                if (!string.IsNullOrEmpty(packet?.Data?.AuthenticationToken))
+                {
+                    authenticated = true;
+                    string auth = packet.Data.AuthenticationToken;
+                    try
+                    {
+                        await File.WriteAllTextAsync(authFile, auth);
+                    }
+                    catch (Exception ex)
+                    {
+                        ex.Out($"Cannot save authentication token. Session might not be remembered.");
+                    }
+                }
+            }
+
+            if (!authenticated)
+            {
+                // TODO: Add communication restart function.
+                //  Otherwise system is one failure away from requiring an app restart.
+                $"Authentication failed! Communication will stop.".Out(ConsoleColor.Red);
+                return;
+            }
+
+            await foreach (var obj in SendChannel.Reader.ReadAllAsync(token))
+            {
+                try
+                {
+                    await socket.SendAsync(obj);
+                }
+                catch (OperationCanceledException) { break; }
+                catch (Exception ex)
+                {
+                    ex.Out();
+                }
+            }
         }
         catch (Exception ex)
         {
             // TODO: Toast failure on UI.
-            //  Propt them to enable API access.
+            //  Prompt them to enable API access.
             ex.Out(ToString());
             identity.Cancel();
         }
@@ -432,6 +631,7 @@ public sealed class VTSSocket : IDisposable
 
     public ValueTask SendAsync<T>(T obj)
     {
+        $"Sending:\n{obj}".Out(ConsoleColor.Magenta);
         string json = JsonSerializer.Serialize(obj, VTSPackets.JsonOptions);
         return SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true);
     }
@@ -485,7 +685,9 @@ public sealed class VTSSocket : IDisposable
 
         try
         {
-            return JsonSerializer.Deserialize<T>(result.Message.Span, VTSPackets.JsonOptions);
+            T? data = JsonSerializer.Deserialize<T>(result.Message.Span, VTSPackets.JsonOptions);
+            $"Received:\n{data}".Out(ConsoleColor.Cyan);
+            return data;
         }
         catch (JsonException)
         {
