@@ -1,8 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
-using System.Windows;
 using System.Windows.Threading;
+using VoiceTrigger.VTS;
+using VoiceTrigger.VTS.Requests;
 
 namespace VoiceTrigger;
 
@@ -39,6 +40,18 @@ public partial class ViewModel : ObservableObject
         RefreshInputDevices();
     }
 
+    [RelayCommand]
+    public static async Task ToggleModelColor()
+    {
+        await VTubeStudio.Instance.Request(new VTSHotkeyTriggerRequest()
+        {
+            Data = new()
+            {
+                HotkeyID = "158eb62bdd5d438ca5175516154131dc",
+                ItemInstanceID = null,
+            },
+        });
+    }
     [RelayCommand] public void ToggleCapture() => AudioCaptureEnabled = !AudioCaptureEnabled;
     partial void OnAudioCaptureEnabledChanged(bool value)
     {

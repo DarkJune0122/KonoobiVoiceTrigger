@@ -78,9 +78,6 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="5" />
                     </Grid.ColumnDefinitions>
                     <ui:ImageIcon Grid.Column="0" Source="pack://application:,,,/icon.ico" Margin="4" IsHitTestVisible="False" />
@@ -91,30 +88,38 @@
                                Visibility="{Binding Triggered, Converter={x:Static local:BoolToVisibilityConverter.Instance}}"/>
                     <Rectangle Grid.Column="4" Fill="Yellow" MinWidth="8" MinHeight="8"
                                Visibility="{Binding IsVolumeActivated, Converter={x:Static local:BoolToVisibilityConverter.Instance}}"/>
-                    <ui:Button Grid.Column="5" Click="Title_Settings" 
+                    <StackPanel Grid.Column="5" Orientation="Horizontal">
+                        <ui:Button Command="{Binding ToggleModelColorCommand}"
                                BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon Symbol="Settings24" Filled="True" />
-                        </ui:Button.Icon>
-                    </ui:Button>
-                    <ui:Button Grid.Column="6" Command="{Binding ToggleCaptureCommand}"
+                            <ui:Button.Icon>
+                                <ui:SymbolIcon Symbol="Color24" Filled="True" />
+                            </ui:Button.Icon>
+                        </ui:Button>
+                        <ui:Button Click="Title_Settings" 
                                BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon Symbol="{Binding AudioCaptureEnabled, Converter={x:Static local:StateToMicrophoneIconConcerter.Instance}}" Filled="True" />
-                        </ui:Button.Icon>
-                    </ui:Button>
-                    <ui:Button Grid.Column="7" Click="Title_Theme"
+                            <ui:Button.Icon>
+                                <ui:SymbolIcon Symbol="Settings24" Filled="True" />
+                            </ui:Button.Icon>
+                        </ui:Button>
+                        <ui:Button Command="{Binding ToggleCaptureCommand}"
                                BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon Symbol="DarkTheme24" Filled="True" />
-                        </ui:Button.Icon>
-                    </ui:Button>
-                    <ui:Button Grid.Column="8" Click="Title_Close"
+                            <ui:Button.Icon>
+                                <ui:SymbolIcon Symbol="{Binding AudioCaptureEnabled, Converter={x:Static local:StateToMicrophoneIconConcerter.Instance}}" Filled="True" />
+                            </ui:Button.Icon>
+                        </ui:Button>
+                        <ui:Button Click="Title_Theme"
                                BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon Symbol="Dismiss24" Filled="True" />
-                        </ui:Button.Icon>
-                    </ui:Button>
+                            <ui:Button.Icon>
+                                <ui:SymbolIcon Symbol="DarkTheme24" Filled="True" />
+                            </ui:Button.Icon>
+                        </ui:Button>
+                        <ui:Button Click="Title_Close"
+                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                            <ui:Button.Icon>
+                                <ui:SymbolIcon Symbol="Dismiss24" Filled="True" />
+                            </ui:Button.Icon>
+                        </ui:Button>
+                    </StackPanel>
                 </Grid>
             </ui:TitleBar.Header>
         </ui:TitleBar>

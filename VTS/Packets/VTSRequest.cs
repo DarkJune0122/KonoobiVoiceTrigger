@@ -3,8 +3,13 @@ using System.Text.Json.Serialization;
 
 namespace VoiceTrigger.VTS.Packets;
 
-public abstract class VTSRequest : VTSRequest<object?>;
-public abstract class VTSRequest<TData> : VTSRequestPacket
+// Note: Maybe use pool TData and Rent/Return it on Json deserialization/disposal?
+public class VTSRequestTemplate : VTSPacket
+{
+    [JsonPropertyName("apiName")] public override string? APIName { get; set; } = DefaultAPIName;
+    [JsonPropertyName("apiVersion")] public override string? APIVersion { get; set; } = DefaultAPIVersion;
+}
+public abstract class VTSRequest<TData> : VTSRequestTemplate where TData : VTSRequestData
 {
     [JsonPropertyName("data")] public required TData? Data { get; set; }
 
@@ -14,4 +19,10 @@ public abstract class VTSRequest<TData> : VTSRequestPacket
         AppendData(b, prefix, Data);
         return b;
     }
+}
+
+public class VTSRequest : VTSRequest<VTSRequestData>;
+public class VTSRequestData : VTSPacketData
+{
+    public override StringBuilder ToString(StringBuilder b, string prefix = "") => b;
 }

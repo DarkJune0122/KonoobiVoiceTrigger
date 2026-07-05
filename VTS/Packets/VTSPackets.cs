@@ -5,6 +5,14 @@ namespace VoiceTrigger.VTS.Packets;
 
 public static class VTSPackets
 {
+    /// <summary>
+    /// Dummy successful request result.
+    /// </summary>
+    public static readonly VTSRequest DummyRequest = new() { Data = null };
+    /// <summary>
+    /// Dummy successful response result.
+    /// </summary>
+    public static readonly VTSResponse DummyResponse = new() { Data = null };
     public static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,

@@ -1,23 +1,41 @@
 ﻿using System.Globalization;
-using System.Windows;
 using System.Windows.Data;
+using VoiceTrigger.VTS;
 using Wpf.Ui.Controls;
 
 namespace VoiceTrigger;
 
+
+[ValueConversion(typeof(VTSStatus), typeof(bool))]
+public sealed class VTSStatusToBoolConverter : AbstractConverter<BoolToVisibilityConverter>
+{
+    public override object Convert(object value, Type targetType, object invert, CultureInfo culture)
+    {
+        if (value is not VTSStatus status)
+            return invert is not null;
+
+        return status == VTSStatus.Online ? invert is null : invert is not null;
+    }
+
+    public override object ConvertBack(object value, Type targetType, object invert, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
 [ValueConversion(typeof(bool), typeof(Visibility))]
 public sealed class BoolToVisibilityConverter : AbstractConverter<BoolToVisibilityConverter>
 {
-    public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public override object Convert(object value, Type targetType, object invert, CultureInfo culture)
     {
         if (value is not bool flag)
-            return parameter is null ? Visibility.Visible : Visibility.Collapsed;
+            return invert is null ? Visibility.Visible : Visibility.Collapsed;
 
-        if (parameter is not null) flag = !flag;
+        if (invert is not null) flag = !flag;
         return flag ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    public override object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public override object ConvertBack(object value, Type targetType, object invert, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
@@ -26,7 +44,7 @@ public sealed class BoolToVisibilityConverter : AbstractConverter<BoolToVisibili
 [ValueConversion(typeof(double), typeof(GridLength))]
 public sealed class DoubleToPercentConverter : AbstractConverter<DoubleToPercentConverter>
 {
-    public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public override object Convert(object value, Type targetType, object invert, CultureInfo culture)
     {
         if (value is not double progress)
             return new GridLength(0, GridUnitType.Star);
@@ -35,7 +53,7 @@ public sealed class DoubleToPercentConverter : AbstractConverter<DoubleToPercent
         return new GridLength(progress, GridUnitType.Star);
     }
 
-    public override object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public override object ConvertBack(object value, Type targetType, object invert, CultureInfo culture)
     {
         throw new NotSupportedException();
     }
@@ -44,7 +62,7 @@ public sealed class DoubleToPercentConverter : AbstractConverter<DoubleToPercent
 [ValueConversion(typeof(double), typeof(GridLength))]
 public sealed class DoubleToRemainingPercentConverter : AbstractConverter<DoubleToRemainingPercentConverter>
 {
-    public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public override object Convert(object value, Type targetType, object invert, CultureInfo culture)
     {
         if (value is not double progress)
             return new GridLength(1, GridUnitType.Star);
@@ -53,7 +71,7 @@ public sealed class DoubleToRemainingPercentConverter : AbstractConverter<Double
         return new GridLength(1.0 - progress, GridUnitType.Star);
     }
 
-    public override object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public override object ConvertBack(object value, Type targetType, object invert, CultureInfo culture)
     {
         throw new NotSupportedException();
     }
@@ -62,16 +80,17 @@ public sealed class DoubleToRemainingPercentConverter : AbstractConverter<Double
 [ValueConversion(typeof(bool), typeof(SymbolRegular))]
 public sealed class StateToMicrophoneIconConcerter : AbstractConverter<StateToMicrophoneIconConcerter>
 {
-    public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public override object Convert(object value, Type targetType, object invert, CultureInfo culture)
     {
         if (value is not bool state) return SymbolRegular.MicOff32;
+        if (invert is not null) state = !state;
         return state ? SymbolRegular.Mic32 : SymbolRegular.MicOff32;
     }
 
-    public override object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public override object ConvertBack(object value, Type targetType, object invert, CultureInfo culture)
     {
         if (value is not SymbolRegular state) return false;
-        return state == SymbolRegular.Mic32;
+        return state == SymbolRegular.Mic32 ? invert is null : invert is not null;
     }
 }
 
