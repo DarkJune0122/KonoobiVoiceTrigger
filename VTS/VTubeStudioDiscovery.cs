@@ -23,6 +23,16 @@ public sealed partial class VTubeStudioDiscovery : ObservableObject
     readonly HashSet<object> Requests = [];
     CancellationTokenSource? Identity;
 
+    public readonly struct Scope(VTubeStudioDiscovery service, object user) : IDisposable
+    {
+        public void Dispose() => service.Release(user);
+    }
+
+    public Scope RequestScope(object user)
+    {
+        Request(user);
+        return new(this, user);
+    }
     public void Request(object user)
     {
         lock (Requests)
@@ -44,34 +54,33 @@ public sealed partial class VTubeStudioDiscovery : ObservableObject
     //[RelayCommand] public void Start() => Application.Current.Dispatcher.Invoke(StartImmediate);
     private void StartImmediate()
     {
-        if (Status != VTSStatus.Offline) return;
+        if (Identity is not null) return;
         try
         {
             Communication(Port, Identity = new());
             Status = VTSStatus.Pending;
             $"{this} Started.".Out();
         }
-        catch (Exception ex)
-        {
-            ex.Out(ToString());
-        }
+        catch (Exception ex) { ex.Out(ToString()); }
     }
 
     //[RelayCommand] public void Stop() => Application.Current.Dispatcher.Invoke(StopImmediate);
     private void StopImmediate()
     {
-        if (Status == VTSStatus.Offline) return;
+        if (Identity is null) return;
         try
         {
-            Identity?.Cancel();
+            Identity.Cancel();
             Identity = null;
             Status = VTSStatus.Offline;
+            // Resets all the info, to force requestors to restart the discovery system.
+            VTSActive = default;
+            VTSPort = default;
+            VTSInstanceID = string.Empty;
+            VTSWindowTitle = string.Empty;
             $"{this} Stopped.".Out();
         }
-        catch (Exception ex)
-        {
-            ex.Out(ToString());
-        }
+        catch (Exception ex) { ex.Out(ToString()); }
     }
 
     private async void Communication(ushort port, CancellationTokenSource identity)

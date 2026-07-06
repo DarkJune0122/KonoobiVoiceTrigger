@@ -14,11 +14,11 @@ public sealed class VTSDiscoveryResponseData : VTSResponseData
 
     public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     {
-        base.ToString(b, prefix).AppendLine();
         AppendLine(b, prefix, Active);
         AppendLine(b, prefix, Port);
         AppendLine(b, prefix, InstanceID);
-        Append(b, prefix, WindowTitle);
-        return b;
+        AppendLine(b, prefix, WindowTitle);
+        return base.ToString(b, prefix);
+        
     }
 }

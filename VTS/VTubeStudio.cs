@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
@@ -32,107 +34,207 @@ public readonly struct VTSRequestResult<T> where T : VTSResponseTemplate
     [MemberNotNullWhen(true, nameof(Response))]
     public bool Success { get; init; }
     public T? Response { get; init; }
-    public bool ResolveSuccess([NotNullWhen(true)] out T? data)
+    public bool ResolveSuccess([NotNullWhen(true)] out T? response)
     {
-        if (Success)
-        {
-            data = Response;
-            return true;
-        }
-
-        data = default;
-        return false;
+        response = Response;
+        return Success;
     }
 }
 
 public sealed partial class VTubeStudio : ObservableObject
 {
-    public const int RequestTimeout = 300;
+    public const int RequestTimeout = 4000;
     public const ushort DefaultPort = 8001;
 
     public static readonly VTubeStudio Instance = new();
 
-    [ObservableProperty] public partial ushort Port { get; set; } = DefaultPort;
     [ObservableProperty] public partial VTSStatus Status { get; private set; }
-    [ObservableProperty] public partial string AccessToken { get; private set; } = string.Empty;
 
-    readonly Channel<string> MessageSendQueue = Channel.CreateUnbounded<string>();
-    // TODO: Add request timeouts.
     readonly ConcurrentDictionary<string, TaskCompletionSource<VTSSocket.ReceiveResult>> Requests = new();
-    CancellationTokenSource? Identity;
+    readonly Channel<string> SendQueue = Channel.CreateUnbounded<string>();
+    readonly Lock IdentityLock = new();
+    VTSSocket? Socket;
 
-    public async ValueTask<bool> Request(VTSRequestTemplate request)
+    [RelayCommand]
+    public void Start()
     {
-        return (await RequestInternal(request, static result => VTSRequestResult.FromResult(VTSPackets.DummyResponse))).Success;
-    }
-
-    public ValueTask<VTSRequestResult<T>> Request<T>(VTSRequestTemplate request) where T : VTSResponseTemplate
-    {
-        return RequestInternal(request, static result =>
-        {
-            T? packet = JsonSerializer.Deserialize<T>(result.Message.Span, VTSPackets.JsonOptions);
-            if (packet is null) return VTSRequestResult<T>.Failed;
-            return VTSRequestResult<T>.FromResult(packet);
-        });
-    }
-
-    delegate VTSRequestResult<T> RequestProcessor<T>(VTSSocket.ReceiveResult result) where T : VTSResponseTemplate;
-    async ValueTask<VTSRequestResult<T>> RequestInternal<T>(VTSRequestTemplate request, RequestProcessor<T> processor)
-        where T : VTSResponseTemplate
-    {
-        if (typeof(T).IsAbstract)
-            throw new ArgumentException($"Cannot use abstract classes in {nameof(VTubeStudio)}.{nameof(Request)} method!");
-        if (Status != VTSStatus.Online)
-            return VTSRequestResult<T>.Failed;
-
-        TaskCompletionSource<VTSSocket.ReceiveResult> source = new();
-        string requestID;
-
+        IdentityLock.Enter();
         try
         {
-            const int ClashResolutionLimit = ushort.MaxValue;
-            int ClashResolutionCounter = 0;
-            while (true)
-            {
-                if (ClashResolutionCounter > ClashResolutionLimit)
-                    return VTSRequestResult<T>.Failed;
+            if (Socket is not null) return;
+            Socket = new();
+            ReportCore(Identity, VTSStatus.Pending);
+            Connect(Identity);
+        }
+        catch (Exception ex) { ex.Out(ToString()); }
+        finally { IdentityLock.Exit(); }
+    }
+    void Start(CancellationTokenSource identity)
+    {
+        IdentityLock.Enter();
+        try
+        {
+            if (Identity == identity) return;
+            ReportCore(identity, VTSStatus.Pending);
+        }
+        catch (Exception ex) { ex.Out(ToString()); }
+        finally { IdentityLock.Exit(); }
+    }
 
-                ClashResolutionCounter++;
-                requestID = Random.Shared.NextInt64().ToString("X16");
-                if (Requests.TryAdd(requestID, source))
+    [RelayCommand]
+    public void Stop()
+    {
+        IdentityLock.Enter();
+        try
+        {
+            if (Identity is null) return;
+            ReportCore(Identity, VTSStatus.Offline);
+            Identity.Cancel();
+            Identity = null;
+        }
+        catch (Exception ex) { ex.Out(ToString()); }
+        finally { IdentityLock.Exit(); }
+    }
+    void Stop(CancellationTokenSource identity)
+    {
+        IdentityLock.Enter();
+        try
+        {
+            if (Identity == identity) return;
+            if (Identity is null) return;
+            ReportCore(identity, VTSStatus.Offline);
+            Identity.Cancel();
+            Identity = null;
+        }
+        catch (Exception ex) { ex.Out(ToString()); }
+        finally { IdentityLock.Exit(); }
+    }
+
+    void Restart(CancellationTokenSource identity, int afterMs = 1000)
+    {
+        IdentityLock.Enter();
+        try
+        {
+            if (Identity == identity) return;
+            if (Identity is null) return;
+            if (afterMs == 0)
+            {
+                Start(identity);
+                return;
+            }
+            Task.Delay(afterMs, identity.Token).ContinueWith((t) => Start(identity));
+        }
+        catch (Exception ex) { ex.Out(ToString()); }
+        finally { IdentityLock.Exit(); }
+    }
+
+    void Report(CancellationTokenSource identity, VTSStatus status)
+    {
+        Application.Current.Dispatcher.Invoke(() => ReportImmediate(identity, status));
+    }
+    void ReportImmediate(CancellationTokenSource identity, VTSStatus status)
+    {
+        IdentityLock.Enter();
+        ReportCore(identity, status);
+        IdentityLock.Exit();
+    }
+    void ReportCore(CancellationTokenSource identity, VTSStatus status)
+    {
+        if (Identity != identity) return;
+        try
+        {
+            Status = status;
+        }
+        catch (Exception ex) { ex.Out(ToString()); }
+    }
+
+    async void Connect(VTSSocket socket)
+    {
+        try
+        {
+            // Constructs URI.
+            ushort port = await DiscoverPort(identity);
+            Uri uri = new($"ws://localhost:{port}");
+            $"{this} URI Constructed successfully: {uri}".Out();
+
+            // Establishes connection with a server.
+            socket = new VTSSocket();
+            await socket.ConnectAsync(uri);
+            ReportStatus(identity, VTSStatus.Online);
+            $"{this} Successfully connected to VTube Studio!".Out(ConsoleColor.Green);
+
+            Receive(identity);
+            Send(identity);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex) { ex.Out(); Restart(identity); }
+        finally
+        {
+            socket?.Dispose();
+        }
+    }
+
+    async Task<ushort> DiscoverPort(VTSSocket socket)
+    {
+        CancellationToken token = socket.Token;
+        using var scope = VTubeStudioDiscovery.Instance.RequestScope(this);
+        TaskCompletionSource<ushort> PortSource = new();
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            if (VTubeStudioDiscovery.Instance.VTSActive)
+            {
+                PortSource.TrySetResult(VTubeStudioDiscovery.Instance.VTSPort);
+                return;
+            }
+
+            VTubeStudioDiscovery.Instance.OnInformationUpdated += UpdateHandler;
+            void UpdateHandler(VTubeStudioDiscovery service)
+            {
+                if (service.VTSActive)
                 {
-                    $"Enqueued RequestID: {requestID}".Out();
-                    break;
+                    service.OnInformationUpdated -= UpdateHandler;
+                    PortSource.TrySetResult(service.VTSPort);
                 }
             }
+        });
 
-            request.RequestID = requestID;
-            string json = JsonSerializer.Serialize(request, request.GetType(), VTSPackets.JsonOptions);
-            if (string.IsNullOrEmpty(json))
-            {
-                Requests.TryRemove(requestID, out _);
-                return VTSRequestResult<T>.Failed;
-            }
-
-            $"Queueing JSON:\n{json}".Out();
-            await MessageSendQueue.Writer.WriteAsync(json);
-            using var cancellation = new CancellationTokenSource();
-            using var registration = cancellation.Token.Register(() => source.TrySetCanceled());
-            cancellation.CancelAfter(RequestTimeout);
-
-            using var result = await source.Task;
-            if (!result.Success)
-                return VTSRequestResult<T>.Failed;
-
-            return processor(result);
-        }
-        catch (OperationCanceledException) { /* Websocket connection was stopped. */ }
-        catch (Exception ex)
+        using (token.Register(() => PortSource.TrySetCanceled()))
         {
-            ex.Out($"Request for ({typeof(T).Name}) failed!");
+            await PortSource.Task;
         }
 
-        return VTSRequestResult<T>.Failed;
+        token.ThrowIfCancellationRequested();
+        return PortSource.Task.Result;
+    }
+
+    async void Receive(CancellationTokenSource identity)
+    {
+        CancellationToken token = identity.Token;
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+
+            }
+            catch (OperationCanceledException) { break; }
+            catch (WebSocketException) { Stop(identity); break; }
+        }
+    }
+
+    async void Send(CancellationTokenSource identity)
+    {
+        CancellationToken token = identity.Token;
+        await foreach (var message in SendQueue.Reader.ReadAllAsync())
+        {
+            try
+            {
+                token.ThrowIfCancellationRequested();
+
+            }
+            catch (OperationCanceledException) { break; }
+            catch (WebSocketException) { Stop(identity); break; }
+            catch (Exception ex) { ex.Out(); }
+        }
     }
 
     [RelayCommand] public void Start() => Application.Current.Dispatcher.Invoke(StartImmediate);
@@ -141,8 +243,8 @@ public sealed partial class VTubeStudio : ObservableObject
         if (Status != VTSStatus.Offline) return;
         try
         {
-            Communication(Identity = new());
             Status = VTSStatus.Pending;
+            Communication(Identity = new());
             $"{this} Started.".Out();
         }
         catch (Exception ex)
@@ -173,6 +275,84 @@ public sealed partial class VTubeStudio : ObservableObject
         }
     }
 
+    public async ValueTask<bool> Request(VTSRequestTemplate request)
+    {
+        return (await RequestInternal(request, static result => VTSRequestResult.FromResult(VTSPackets.DummyResponse))).Success;
+    }
+
+    public ValueTask<VTSRequestResult<T>> Request<T>(VTSRequestTemplate request) where T : VTSResponseTemplate
+    {
+        return RequestInternal(request, static result =>
+        {
+            T? packet = JsonSerializer.Deserialize<T>(result.Message, VTSPackets.JsonOptions);
+            if (packet is null) return VTSRequestResult<T>.Failed;
+            return VTSRequestResult<T>.FromResult(packet);
+        });
+    }
+
+    delegate VTSRequestResult<T> RequestProcessor<T>(VTSSocket.ReceiveResult result) where T : VTSResponseTemplate;
+    async ValueTask<VTSRequestResult<T>> RequestInternal<T>(VTSRequestTemplate request, RequestProcessor<T> processor)
+        where T : VTSResponseTemplate
+    {
+        if (typeof(T).IsAbstract)
+            throw new ArgumentException($"Cannot use abstract class ({typeof(T).Name}) in {nameof(VTubeStudio)}.{nameof(Request)} method!");
+        if (Status == VTSStatus.Offline)
+            return VTSRequestResult<T>.Failed;
+
+        TaskCompletionSource<VTSSocket.ReceiveResult> source = new();
+        string? requestID = null;
+
+        try
+        {
+            const int ClashResolutionLimit = ushort.MaxValue;
+            int ClashResolutionCounter = 0;
+            while (true)
+            {
+                if (ClashResolutionCounter > ClashResolutionLimit)
+                    return VTSRequestResult<T>.Failed;
+
+                ClashResolutionCounter++;
+                requestID = Random.Shared.NextInt64().ToString("X16");
+                if (Requests.TryAdd(requestID, source))
+                {
+                    $"Enqueued RequestID: {requestID}".Out();
+                    break;
+                }
+            }
+
+            request.RequestID = requestID;
+            string json = JsonSerializer.Serialize(request, request.GetType(), VTSPackets.JsonOptions);
+            if (string.IsNullOrEmpty(json))
+            {
+                return VTSRequestResult<T>.Failed;
+            }
+
+            await SendQueue.Writer.WriteAsync(json);
+            using var cancellation = new CancellationTokenSource(RequestTimeout);
+            using var registration = cancellation.Token.Register(() => { "Timeout!".Out(ConsoleColor.Yellow); source.TrySetCanceled(); });
+            using var result = await source.Task;
+            if (!result.Success)
+            {
+                $"Failed!".Out();
+                return VTSRequestResult<T>.Failed;
+            }
+
+            return processor(result);
+        }
+        catch (OperationCanceledException) { /* Websocket connection was stopped. */ }
+        catch (Exception ex)
+        {
+            ex.Out($"Request for ({typeof(T).Name}) failed!");
+        }
+        finally
+        {
+            if (requestID is not null)
+                Requests.TryRemove(requestID, out _);
+        }
+
+        return VTSRequestResult<T>.Failed;
+    }
+
     private async void Communication(CancellationTokenSource identity)
     {
         VTubeStudioDiscovery.Instance.Request(this);
@@ -180,15 +360,6 @@ public sealed partial class VTubeStudio : ObservableObject
         VTSSocket? socket = null;
         try
         {
-            // Reads app icon as Base64 to use as plugin preview.
-            string image = string.Empty;
-            string imageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.png");
-            if (File.Exists(imageFile))
-            {
-                byte[] bytes = await File.ReadAllBytesAsync(imageFile);
-                image = Convert.ToBase64String(bytes);
-            }
-
             // Fetches Port from a discovery server.
             TaskCompletionSource<ushort> PortSource = new();
             Application.Current.Dispatcher.Invoke(() =>
@@ -226,22 +397,10 @@ public sealed partial class VTubeStudio : ObservableObject
             // Establishes connection with a server.
             socket = new VTSSocket(identity, new());
             await socket.ConnectAsync(uri, token);
+            _ = SocketListened();
+            _ = SocketSender();
             ReportStatus(identity, VTSStatus.Online);
-            $"{this} Successfully connected to VTuber Studio!".Out();
-
-            // Initial connection.
-            {
-                string RequestID = $"ConnectionRequest{Random.Shared.Next():X8}";
-                // Receive command should always be initialized first.
-                var response = socket.ReceiveAsync<VTSAPIStateResponse>();
-                await socket.SendAsync(new VTSAPIStateRequest()
-                {
-                    RequestID = RequestID,
-                    Data = null
-                });
-                var packet = await response;
-                $"Received {RequestID} result:\n{packet}".Out(ConsoleColor.Cyan);
-            }
+            $"{this} Successfully connected to VTube Studio!".Out(ConsoleColor.Green);
 
             // Using an existing token, if possible.
             bool authenticated = false;
@@ -262,11 +421,8 @@ public sealed partial class VTubeStudio : ObservableObject
                     goto TokenRestoreEnd;
                 }
 
-                var response = socket.ReceiveAsync<VTSAuthenticationResponse>();
-                var RequestID = $"{nameof(VTSAuthenticationRequest)}{Random.Shared.Next():X8}";
-                await socket.SendAsync(new VTSAuthenticationRequest()
+                var result = await Request<VTSAuthenticationResponse>(new VTSAuthenticationRequest
                 {
-                    RequestID = RequestID,
                     Data = new()
                     {
                         PluginName = "Voice Trigger",
@@ -274,14 +430,13 @@ public sealed partial class VTubeStudio : ObservableObject
                         AuthenticationToken = auth,
                     }
                 });
-                var packet = await response;
-                if (packet?.Data?.Authenticated == true)
+                if (result.ResolveSuccess(out var response) && response.Data?.Authenticated == true)
                 {
                     $"Plugin re-authentication successful! Previous session has been restored.".Out(ConsoleColor.Green);
                 }
                 else
                 {
-                    $"Cannot restore previous session from a response:\n{packet}".Out(ConsoleColor.Yellow);
+                    $"Cannot restore previous session from a response:\n{response}".Out(ConsoleColor.Yellow);
                 }
 
                 TokenRestoreEnd:;
@@ -291,12 +446,18 @@ public sealed partial class VTubeStudio : ObservableObject
             token.ThrowIfCancellationRequested();
             if (!authenticated)
             {
-                $"Aquiring new Authentication Token...".Out();
-                var response = socket.ReceiveAsync<VTSAuthenticationTokenResponse>();
-                var RequestID = $"{nameof(VTSAuthenticationTokenRequest)}{Random.Shared.Next():X8}";
-                await socket.SendAsync(new VTSAuthenticationTokenRequest()
+                // Reads app icon as Base64 to use as plugin preview.
+                string image = string.Empty;
+                string imageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.png");
+                if (File.Exists(imageFile))
                 {
-                    RequestID = RequestID,
+                    byte[] bytes = await File.ReadAllBytesAsync(imageFile);
+                    image = Convert.ToBase64String(bytes);
+                }
+
+                $"Aquiring new Authentication Token...".Out();
+                var result = await Request<VTSAuthenticationTokenResponse>(new VTSAuthenticationTokenRequest
+                {
                     Data = new()
                     {
                         PluginName = "Voice Trigger",
@@ -304,11 +465,10 @@ public sealed partial class VTubeStudio : ObservableObject
                         PluginIcon = image
                     }
                 });
-                var packet = await response;
-                if (!string.IsNullOrEmpty(packet?.Data?.AuthenticationToken))
+                if (result.ResolveSuccess(out var response) && !string.IsNullOrEmpty(response.Data?.AuthenticationToken))
                 {
                     authenticated = true;
-                    string auth = packet.Data.AuthenticationToken;
+                    string auth = response.Data.AuthenticationToken;
                     try
                     {
                         await File.WriteAllTextAsync(authFile, auth);
@@ -336,17 +496,10 @@ public sealed partial class VTubeStudio : ObservableObject
             string? loadedModelID = null;
             {
                 $"Requesting a list of models...".Out();
-                var response = socket.ReceiveAsync<VTSAvailableModelsResponse>();
-                var RequestID = $"{nameof(VTSAvailableModelsRequest)}{Random.Shared.Next():X8}";
-                await socket.SendAsync(new VTSAvailableModelsRequest()
+                var result = await Request<VTSAvailableModelsResponse>(new VTSAvailableModelsRequest());
+                if (result.ResolveSuccess(out var response))
                 {
-                    RequestID = RequestID,
-                    Data = null,
-                });
-                var packet = await response;
-                if (packet?.Data is not null)
-                {
-                    var item = packet.Data.AvailableModels?.FirstOrDefault(static d => d.ModelLoaded);
+                    var item = response.Data?.AvailableModels?.FirstOrDefault(static d => d.ModelLoaded);
                     if (item.HasValue && item.Value.ModelLoaded)
                     {
                         loadedModelID = item.Value.ModelID;
@@ -368,21 +521,17 @@ public sealed partial class VTubeStudio : ObservableObject
             if (!string.IsNullOrEmpty(loadedModelID))
             {
                 $"Requesting a list of hotkeys...".Out();
-                var response = socket.ReceiveAsync<VTSModelHotkeysResponse>();
-                var RequestID = $"{nameof(VTSModelHotkeysRequest)}{Random.Shared.Next():X8}";
-                await socket.SendAsync(new VTSModelHotkeysRequest()
+                var result = await Request<VTSModelHotkeysResponse>(new VTSModelHotkeysRequest()
                 {
-                    RequestID = RequestID,
                     Data = new()
                     {
                         ModelID = loadedModelID,
                         Live2DItemFileName = null,
                     }
                 });
-                var packet = await response;
-                if (packet?.Data is not null)
+                if (result.ResolveSuccess(out var response))
                 {
-                    var item = packet.Data.AvailableHotkeys?.FirstOrDefault(static d => d.Name == "粉双马尾");
+                    var item = response.Data?.AvailableHotkeys?.FirstOrDefault(static d => d.Name == "粉双马尾");
                     if (item.HasValue && item.Value.Name == "粉双马尾")
                     {
                         targetHotkeyID = item.Value.HotkeyID;
@@ -403,19 +552,15 @@ public sealed partial class VTubeStudio : ObservableObject
             if (!string.IsNullOrEmpty(targetHotkeyID))
             {
                 $"Requesting a hotkey execution...".Out();
-                var response = socket.ReceiveAsync<VTSHotkeyTriggerResponse>();
-                var RequestID = $"{nameof(VTSHotkeyTriggerRequest)}{Random.Shared.Next():X8}";
-                await socket.SendAsync(new VTSHotkeyTriggerRequest()
+                var result = await Request<VTSHotkeyTriggerResponse>(new VTSHotkeyTriggerRequest()
                 {
-                    RequestID = RequestID,
                     Data = new()
                     {
                         HotkeyID = targetHotkeyID,
                         ItemInstanceID = null,
                     }
                 });
-                var packet = await response;
-                if (!string.IsNullOrEmpty(packet?.Data?.HotkeyID))
+                if (result.ResolveSuccess(out var response) && !string.IsNullOrEmpty(response.Data?.HotkeyID))
                 {
                     $"Hotkey triggered successfully!".Out(ConsoleColor.Green);
                 }
@@ -452,11 +597,10 @@ public sealed partial class VTubeStudio : ObservableObject
                         bool queued = false;
                         try
                         {
-                            var response = JsonSerializer.Deserialize<VTSResponse>(result.Message.Span, VTSPackets.JsonOptions);
-                            $"Reading template:\n{response}".Out(ConsoleColor.Cyan);
+                            var response = JsonSerializer.Deserialize<VTSResponse>(result.Message, VTSPackets.JsonOptions);
                             if (response?.RequestID is null)
                             {
-                                $"Cannot deserialize basic response data! VTS Json: {new string(result.Message.Span)}".Out(ConsoleColor.Yellow);
+                                $"Cannot deserialize basic response data! VTS Json: {new string(result.Message)}".Out(ConsoleColor.Yellow);
                             }
                             else if (Requests.TryRemove(response.RequestID, out var receiver))
                             {
@@ -468,6 +612,11 @@ public sealed partial class VTubeStudio : ObservableObject
                                 $"Cannot find a handler for RequestID: {response.RequestID}".Out(ConsoleColor.Yellow);
                             }
                         }
+                        catch (JsonException ex)
+                        {
+                            ex.Out();
+                            $"\nFailed JSON:\n{new string(result.Message)}".Out(ConsoleColor.Red);
+                        }
                         finally
                         {
                             if (!queued)
@@ -475,6 +624,7 @@ public sealed partial class VTubeStudio : ObservableObject
                         }
                     }
                     catch (OperationCanceledException) { break; }
+                    catch (WebSocketException) { Stop(); break; }
                     catch (Exception ex)
                     {
                         ex.Out();
@@ -484,7 +634,7 @@ public sealed partial class VTubeStudio : ObservableObject
 
             async Task SocketSender()
             {
-                await foreach (var json in MessageSendQueue.Reader.ReadAllAsync(token))
+                await foreach (var json in SendQueue.Reader.ReadAllAsync(token))
                 {
                     try
                     {
@@ -499,8 +649,6 @@ public sealed partial class VTubeStudio : ObservableObject
                 }
             }
 
-            _ = SocketListened();
-            _ = SocketSender();
             TaskCompletionSource finish = new();
             using (token.Register(finish.SetResult))
             {
@@ -527,6 +675,7 @@ public sealed partial class VTubeStudio : ObservableObject
     {
         Application.Current.Dispatcher.Invoke(() => ReportStatusImmediate(identity, status));
     }
+
     private void ReportStatusImmediate(CancellationTokenSource identity, VTSStatus status)
     {
         if (Identity != identity) return;

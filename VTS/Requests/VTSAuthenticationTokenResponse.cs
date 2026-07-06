@@ -11,8 +11,7 @@ public sealed class VTSAuthenticationTokenResponseData : VTSResponseData
 
     public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     {
-        base.ToString(b, prefix).AppendLine();
         AppendLine(b, prefix, AuthenticationToken);
-        return b;
+        return base.ToString(b, prefix);
     }
 }

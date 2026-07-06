@@ -13,10 +13,9 @@ public sealed class VTSAPIStateResposeData : VTSResponseData
 
     public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     {
-        base.ToString(b, prefix).AppendLine();
         AppendLine(b, prefix, Active);
         AppendLine(b, prefix, VTubeStudioVersion);
-        Append(b, prefix, CurrentSessionAuthenticated);
-        return b;
+        AppendLine(b, prefix, CurrentSessionAuthenticated);
+        return base.ToString(b, prefix);
     }
 }

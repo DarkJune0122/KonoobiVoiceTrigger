@@ -11,8 +11,7 @@ public sealed class VTSHotkeyTriggerResponseData : VTSResponseData
 
     public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     {
-        base.ToString(b, prefix).AppendLine();
-        Append(b, prefix, HotkeyID);
-        return b;
+        AppendLine(b, prefix, HotkeyID);
+        return base.ToString(b, prefix);
     }
 }

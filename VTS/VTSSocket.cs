@@ -25,15 +25,15 @@ public sealed class VTSSocket : IDisposable
     volatile bool IsStarted;
     volatile bool Disposed;
 
-    public VTSSocket(CancellationTokenSource identity, ClientWebSocket socket, Encoding? encoding = null)
+    public VTSSocket(Encoding? encoding = null)
     {
-        ArgumentNullException.ThrowIfNull(Identity = identity);
-        ArgumentNullException.ThrowIfNull(Socket = socket);
         Encoding = encoding ?? Encoding.UTF8;
+        Identity = new();
         Token = Identity.Token;
+        Socket = new();
     }
 
-    public Task ConnectAsync(Uri uri, CancellationToken token)
+    public Task ConnectAsync(Uri uri)
     {
         using (Lock.EnterScope())
         {
@@ -43,12 +43,11 @@ public sealed class VTSSocket : IDisposable
             IsStarted = true;
         }
 
-        return Socket.ConnectAsync(uri, token);
+        return Socket.ConnectAsync(uri, Token);
     }
 
     public ValueTask SendAsync<T>(T obj)
     {
-        $"Sending:\n{obj}".Out(ConsoleColor.Magenta);
         try
         {
             return SendJsonAsync(JsonSerializer.Serialize(obj, VTSPackets.JsonOptions));
@@ -59,7 +58,11 @@ public sealed class VTSSocket : IDisposable
             return ValueTask.CompletedTask;
         }
     }
-    public ValueTask SendJsonAsync(string json) => SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true);
+    public ValueTask SendJsonAsync(string json)
+    {
+        $"Sending:\n{json}".Out(ConsoleColor.Magenta);
+        return SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true);
+    }
     public ValueTask SendAsync(ReadOnlySpan<byte> bytes, WebSocketMessageType type, bool endOfMessage)
     {
         using (Lock.EnterScope())
@@ -93,7 +96,7 @@ public sealed class VTSSocket : IDisposable
     {
         public static readonly ReceiveResult Faulted = new(false, null, 0);
         public readonly bool Success = success;
-        public Memory<char> Message => (buffer ?? throw new InvalidOperationException("Result doesn't contant a message.")).AsMemory(0, length);
+        public Span<char> Message => (buffer ?? throw new InvalidOperationException("Result doesn't contain a message.")).AsMemory(0, length).Span;
         public void Dispose()
         {
             if (buffer is not null)
@@ -111,13 +114,13 @@ public sealed class VTSSocket : IDisposable
 
         try
         {
-            T? data = JsonSerializer.Deserialize<T>(result.Message.Span, VTSPackets.JsonOptions);
+            T? data = JsonSerializer.Deserialize<T>(result.Message, VTSPackets.JsonOptions);
             $"Received:\n{data}".Out(ConsoleColor.Cyan);
             return data;
         }
         catch (JsonException)
         {
-            $"Failed to deserialize {typeof(T)} from data:\n{new string(result.Message.Span)}".Out();
+            $"Failed to deserialize {typeof(T)} from data:\n{new string(result.Message)}".Out();
         }
         finally
         {
@@ -178,6 +181,7 @@ public sealed class VTSSocket : IDisposable
                         chars = ArrayPool<char>.Shared.Rent(Encoding.GetCharCount(bytes));
                         int total = Encoding.GetChars(bytes, chars);
                         ReceiveResult ret = new(true, chars, total);
+                        $"Received:\n{ret.Message}".Out(ConsoleColor.Cyan);
                         chars = null;
                         return ret;
                 }

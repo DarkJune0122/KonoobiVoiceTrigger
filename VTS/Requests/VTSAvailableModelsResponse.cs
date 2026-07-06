@@ -34,9 +34,8 @@ public sealed class VTSAvailableModelsResponseData : VTSResponseData
 
     public override StringBuilder ToString(StringBuilder b, string prefix = "")
     {
-        base.ToString(b, prefix).AppendLine();
         AppendLine(b, prefix, NumberOfModels);
-        AppendList(b, prefix, AvailableModels, Model.ToString);
-        return b;
+        AppendList(b, prefix, AvailableModels, Model.ToString).AppendLine();
+        return base.ToString(b, prefix);
     }
 }

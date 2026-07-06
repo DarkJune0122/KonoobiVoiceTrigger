@@ -38,11 +38,10 @@ public sealed class VTSModelHotkeysResponseData : VTSResponseData
 
     public override StringBuilder ToString(StringBuilder b, string prefix = "")
     {
-        base.ToString(b, prefix).AppendLine();
         AppendLine(b, prefix, ModelLoaded);
         AppendLine(b, prefix, ModelName);
         AppendLine(b, prefix, ModelID);
-        AppendList(b, prefix, AvailableHotkeys, Hotkey.ToString);
-        return b;
+        AppendList(b, prefix, AvailableHotkeys, Hotkey.ToString).AppendLine();
+        return base.ToString(b, prefix);
     }
 }
