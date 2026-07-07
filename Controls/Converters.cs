@@ -1,10 +1,10 @@
-﻿using System.Globalization;
+﻿using System.Drawing;
+using System.Globalization;
 using System.Windows.Data;
 using VoiceTrigger.VTS;
 using Wpf.Ui.Controls;
 
 namespace VoiceTrigger;
-
 
 [ValueConversion(typeof(VTSStatus), typeof(bool))]
 public sealed class VTSStatusToBoolConverter : AbstractConverter<BoolToVisibilityConverter>

@@ -9,7 +9,7 @@
     ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>
-            <local:ViewModel x:Key="ViewModel" />
+            <local:RootViewModel x:Key="RootViewModel" />
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />

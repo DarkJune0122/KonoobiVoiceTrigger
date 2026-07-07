@@ -117,7 +117,7 @@ public partial class MainWindow : FluentWindow
 
     private void Window_Activeted(object sender, EventArgs e)
     {
-        if (DataContext is ViewModel model)
+        if (DataContext is RootViewModel model)
             model.RefreshInputDevices();
     }
 }

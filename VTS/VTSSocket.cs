@@ -15,12 +15,12 @@ public sealed class VTSSocket : IDisposable
     public delegate void StopHandler(VTSSocket client);
     public readonly CancellationTokenSource Identity;
     public readonly CancellationToken Token;
-    public readonly ClientWebSocket Socket;
+    public readonly ClientWebSocket WebSocket;
     public readonly Encoding Encoding;
 
     byte[] Buffer = ArrayPool<byte>.Shared.Rent(InitialBufferSize);
-    readonly Mutex ReceiveMutex = new();
-    readonly Mutex SendMutex = new();
+    readonly SemaphoreSlim ReceiveSemaphore = new(1); // WARNING! Mutexes here break in Async code! Replace with SemihoreSlim!
+    readonly SemaphoreSlim SendSemaphore = new(1); // WARNING! Mutexes here break in Async code! Replace with SemihoreSlim!
     readonly Lock Lock = new();
     volatile bool IsStarted;
     volatile bool Disposed;
@@ -30,7 +30,7 @@ public sealed class VTSSocket : IDisposable
         Encoding = encoding ?? Encoding.UTF8;
         Identity = new();
         Token = Identity.Token;
-        Socket = new();
+        WebSocket = new();
     }
 
     public Task ConnectAsync(Uri uri)
@@ -43,27 +43,15 @@ public sealed class VTSSocket : IDisposable
             IsStarted = true;
         }
 
-        return Socket.ConnectAsync(uri, Token);
+        return WebSocket.ConnectAsync(uri, Token);
     }
 
-    public ValueTask SendAsync<T>(T obj)
-    {
-        try
-        {
-            return SendJsonAsync(JsonSerializer.Serialize(obj, VTSPackets.JsonOptions));
-        }
-        catch (Exception ex)
-        {
-            ex.Out($"Sending failed!\n");
-            return ValueTask.CompletedTask;
-        }
-    }
-    public ValueTask SendJsonAsync(string json)
+    public ValueTask SendAsync(string json)
     {
         $"Sending:\n{json}".Out(ConsoleColor.Magenta);
         return SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true);
     }
-    public ValueTask SendAsync(ReadOnlySpan<byte> bytes, WebSocketMessageType type, bool endOfMessage)
+    ValueTask SendAsync(ReadOnlySpan<byte> bytes, WebSocketMessageType type, bool endOfMessage)
     {
         using (Lock.EnterScope())
         {
@@ -79,15 +67,15 @@ public sealed class VTSSocket : IDisposable
 
     async ValueTask SendAsyncCore(byte[] bytes, int length, WebSocketMessageType type, bool endOfMessage)
     {
-        SendMutex.WaitOne();
+        await SendSemaphore.WaitAsync();
         try
         {
-            await Socket.SendAsync(new Memory<byte>(bytes, 0, length), type, endOfMessage, Token);
+            await WebSocket.SendAsync(new Memory<byte>(bytes, 0, length), type, endOfMessage, Token);
         }
         catch (Exception ex) { ex.Out(); }
         finally
         {
-            SendMutex.ReleaseMutex();
+            SendSemaphore.Release();
             ArrayPool<byte>.Shared.Return(bytes);
         }
     }
@@ -139,18 +127,18 @@ public sealed class VTSSocket : IDisposable
             NotStartedException.ThrowIf(!IsStarted, this);
         }
 
-        ReceiveMutex.WaitOne();
+        await ReceiveSemaphore.WaitAsync();
         char[]? chars = null;
         int head = 0;
         try
         {
             while (!Token.IsCancellationRequested)
             {
-                var result = await Socket.ReceiveAsync(new(Buffer, head, Buffer.Length - head), Token);
+                var result = await WebSocket.ReceiveAsync(new(Buffer, head, Buffer.Length - head), Token);
                 switch (result.MessageType)
                 {
                     case WebSocketMessageType.Close:
-                        await Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", Token);
+                        await WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", Token);
                         $"{this} VTube Studio gracefully closed connection.".Out(ConsoleColor.Yellow);
                         return ReceiveResult.Faulted;
 
@@ -163,7 +151,7 @@ public sealed class VTSSocket : IDisposable
                         if (newLength > MaxBufferSize)
                         {
                             $"Message is too big! (over {head}/{MaxBufferSize} bytes)".Out();
-                            await Socket.CloseAsync(WebSocketCloseStatus.MessageTooBig, "", Token);
+                            await WebSocket.CloseAsync(WebSocketCloseStatus.MessageTooBig, "", Token);
                             return ReceiveResult.Faulted;
                         }
 
@@ -189,6 +177,7 @@ public sealed class VTSSocket : IDisposable
         }
         finally
         {
+            ReceiveSemaphore.Release();
             if (chars is not null)
                 ArrayPool<char>.Shared.Return(chars);
         }

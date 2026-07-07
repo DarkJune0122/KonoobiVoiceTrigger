@@ -1,30 +1,88 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
+using System.Collections.ObjectModel;
+using System.Drawing;
 using System.Windows.Threading;
 using VoiceTrigger.VTS;
 using VoiceTrigger.VTS.Requests;
 
 namespace VoiceTrigger;
 
+public sealed partial class VTSHotkeyViewModel : ObservableObject
+{
+    public const string DefaultName = "Unknown";
+    public const string DefaultType = "";
+    public const string DefaultDescription = "";
+    public const string DefaultHotkeyID = "";
+
+    [ObservableProperty] public required partial string HotkeyID { get; set; } = DefaultHotkeyID;
+    [ObservableProperty] public required partial string Name { get; set; } = DefaultName;
+    [ObservableProperty] public required partial string Type { get; set; } = DefaultType;
+    [ObservableProperty] public required partial string Description { get; set; } = DefaultDescription;
+}
+
+public sealed partial class VTSModelViewModel : ObservableObject
+{
+    public const string DefaultName = "Unknown";
+    public const string DefaultModelID = "";
+
+    [ObservableProperty] public required partial string ModelID { get; set; } = DefaultModelID;
+    [ObservableProperty] public required partial string Name { get; set; } = DefaultName;
+    [ObservableProperty] public required partial VTSHotkeyViewModel[]? Hotkeys { get; set; }
+
+
+}
+
+public sealed partial class TriggerViewModel(RootViewModel root) : ObservableObject
+{
+    public readonly RootViewModel Root = root;
+
+    [ObservableProperty] public partial VTSModelViewModel? SelectedModel { get; set; }
+    [ObservableProperty] public partial VTSHotkeyViewModel[]? SelectedModelHotkeys { get; set; }
+    [ObservableProperty] public partial VTSHotkeyViewModel? SelectedHotkey { get; set; }
+
+    partial void OnSelectedModelChanged(VTSModelViewModel? value)
+    {
+        if (value is null || value.Hotkeys is null)
+        {
+            SelectedModelHotkeys = null;
+            SelectedHotkey = null;
+            return;
+        }
+
+        SelectedModelHotkeys = value.Hotkeys;
+        if (Array.IndexOf(SelectedModelHotkeys, value) == -1)
+        {
+            SelectedModel = null;
+        }
+    }
+}
+
 // TODO: Serialize states. Move Advanced settings in a separate .cfg file.
 // TODO: Go through the logic and find out - matbe we can make the logic funnier to use? More engaging, etc.
-public partial class ViewModel : ObservableObject
+public sealed partial class RootViewModel : ObservableObject
 {
     const long MinBoostSpacingMs = 1000;
 
+    [ObservableProperty] public partial double AudioGain { get; set; }
+    [ObservableProperty] public partial double AudioVolume { get; set; }
     [ObservableProperty] public partial double LeftAudioVolume { get; set; }
     [ObservableProperty] public partial double RightAudioVolume { get; set; }
     [ObservableProperty] public partial bool AudioCaptureEnabled { get; set; }
     [ObservableProperty] public partial DeviceViewModel[] AudioCaptureDevices { get; set; } = [];
     [ObservableProperty] public partial DeviceViewModel? SelectedAudioCaptureDevice { get; set; }
-    [ObservableProperty] public partial double ActivationVolume { get; set; } = 0.12;
-    [ObservableProperty] public partial double TriggerBreakChargeUpBoost { get; set; } = 0.2;
-    [ObservableProperty] public partial double TriggerChargeUp { get; set; } = 3.2;
-    [ObservableProperty] public partial double TriggerChargeDown { get; set; } = 16.0;
+    [ObservableProperty] public partial VTSModelViewModel[] VTSModels { get; set; } = [];
+    [ObservableProperty] public partial double ActivationThreshold { get; set; } = 0.12;
     [ObservableProperty] public partial bool IsVolumeActivated { get; set; }
     [ObservableProperty] public partial bool Triggered { get; set; }
+    [ObservableProperty] public partial bool Frozen { get; set; }
+    [ObservableProperty] public partial Color IndicatorColor { get; set; }
+    [ObservableProperty] public partial Brush IndicatorBrush { get; set; }
     [ObservableProperty] public partial double TriggerProgress { get; set; }
+    [ObservableProperty] public partial double TriggerChargeBoost { get; set; } = 0.2;
+    [ObservableProperty] public partial double ChargeTime { get; set; } = 3.2;
+    [ObservableProperty] public partial double DischargeTime { get; set; } = 16.0;
 
     readonly DispatcherTimer CaptureTimer = new();
     MMDevice? ActiveAudioCaptureDevice;
@@ -32,12 +90,23 @@ public partial class ViewModel : ObservableObject
     long LastBoostTick;
     long TotalTicks;
 
-    public ViewModel()
+    public RootViewModel()
     {
         CaptureTimer.Tick += HandleCaptureTick;
         CaptureTimer.Interval = TimeSpan.FromMicroseconds(100); // 10
         CaptureTimer.IsEnabled = AudioCaptureEnabled;
-        RefreshInputDevices();
+        Activate();
+        // TODO: Sub to trigger events.
+        //  Calculate triggered state based on event feedbacks (unless VTS is disabled?)
+        //VTubeStudio.Instance.OnAuthenticated //...
+    }
+
+    
+
+    partial void OnTriggeredChanged(bool value)
+    {
+        // TODO: Send state to Live2D.
+        //var result =
     }
 
     [RelayCommand]
@@ -96,26 +165,25 @@ public partial class ViewModel : ObservableObject
             return;
         }
 
-        double volume;
         var channels = ActiveAudioCaptureDevice.AudioMeterInformation.PeakValues;
         switch (channels.Count)
         {
             case 0:
-                volume = 0f;
-                LeftAudioVolume = volume;
-                RightAudioVolume = volume;
+                AudioVolume = 0f;
+                LeftAudioVolume = AudioVolume;
+                RightAudioVolume = AudioVolume;
                 Console.WriteLine($"[{DateTime.Now}][0]: {LeftAudioVolume} (s: {TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds})");
                 break;
             case 1:
-                volume = channels[0];
-                LeftAudioVolume = volume;
-                RightAudioVolume = volume;
+                AudioVolume = channels[0];
+                LeftAudioVolume = AudioVolume;
+                RightAudioVolume = AudioVolume;
                 Console.WriteLine($"[{DateTime.Now}][1]: {LeftAudioVolume} (s: {TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds})");
                 break;
             case 2:
                 LeftAudioVolume = channels[0];
                 RightAudioVolume = channels[1];
-                volume = Math.Max(LeftAudioVolume, RightAudioVolume);
+                AudioVolume = Math.Max(LeftAudioVolume, RightAudioVolume);
                 Console.WriteLine($"[{DateTime.Now}][2]: {LeftAudioVolume} + {RightAudioVolume} (s: {TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds})");
                 break;
             default:
@@ -123,7 +191,7 @@ public partial class ViewModel : ObservableObject
                 else goto case 2;
         }
 
-        IsVolumeActivated = volume > ActivationVolume;
+        IsVolumeActivated = AudioVolume > ActivationThreshold;
 
         long tick = Environment.TickCount64;
         long delta = tick - LastTick;
@@ -140,7 +208,7 @@ public partial class ViewModel : ObservableObject
             }
 
             double total = TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds;
-            if (total >= TriggerChargeUp)
+            if (total >= ChargeTime)
             {
                 Triggered = true;
                 TriggerProgress = 1;
@@ -148,7 +216,7 @@ public partial class ViewModel : ObservableObject
             }
             else
             {
-                TriggerProgress = total / TriggerChargeUp;
+                TriggerProgress = total / ChargeTime;
             }
         }
         else
@@ -164,7 +232,7 @@ public partial class ViewModel : ObservableObject
             }
 
             double total = TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds;
-            if (total >= TriggerChargeDown)
+            if (total >= DischargeTime)
             {
                 Triggered = false;
                 TriggerProgress = 1;
@@ -172,7 +240,7 @@ public partial class ViewModel : ObservableObject
             }
             else
             {
-                TriggerProgress = total / TriggerChargeDown;
+                TriggerProgress = total / DischargeTime;
             }
         }
         LastTick = Environment.TickCount64;
@@ -184,19 +252,58 @@ public partial class ViewModel : ObservableObject
         if (!Triggered && value && TimeSpan.FromMilliseconds(tick - LastBoostTick).TotalMilliseconds >= MinBoostSpacingMs)
         {
             LastBoostTick = tick;
-            TotalTicks = Math.Clamp(TotalTicks + (long)TimeSpan.FromSeconds(TriggerBreakChargeUpBoost).TotalMilliseconds, 0, MaxTickCount);
+            TotalTicks = Math.Clamp(TotalTicks + (long)TimeSpan.FromSeconds(TriggerChargeBoost).TotalMilliseconds, 0, MaxTickCount);
         }
     }
 
-    partial void OnTriggeredChanged(bool value)
+    [RelayCommand] public void Activate() => Application.Current.Dispatcher.Invoke(ActivateImmediate);
+    private void ActivateImmediate()
     {
-        // TODO: Send state to Live2D.
+        RefreshInputDevicesImmediate();
+        VTubeStudio.Instance.OnAuthenticated += HandleAuthenticated;
+        if (VTubeStudio.Instance.Authenticated)
+        {
+            HandleAuthenticated();
+        }
+    }
+
+    [RelayCommand] public void Deactivate() => Application.Current.Dispatcher.Invoke(DeactivateImmediate);
+    private void DeactivateImmediate()
+    {
+        VTubeStudio.Instance.OnAuthenticated -= HandleAuthenticated;
+    }
+
+    private void HandleAuthenticated() => RefreshVTS();
+
+    [RelayCommand] public void RefreshVTS() => Application.Current.Dispatcher.Invoke(RefreshVTSImmediate);
+    private async void RefreshVTSImmediate()
+    {
+        var result = await VTubeStudio.Instance.Request<VTSAvailableModelsResponse>(VTSAvailableModelsRequest.Instance);
+        if (result.ResolveSuccess(out var response) && response.Data?.AvailableModels?.Length > 0)
+        {
+            var array = response.Data.AvailableModels;
+            var models = new VTSModelViewModel[array.Length];
+            for (int i = 0; i < array.Length; i++)
+            {
+                var model = array[i];
+                models[i] = new VTSModelViewModel()
+                {
+                    ModelID = model.ModelID ?? VTSModelViewModel.DefaultModelID,
+                    Name = model.VTSModelName ?? VTSModelViewModel.DefaultName,
+                    Hotkeys = null,
+                };
+            }
+        }
+        else
+        {
+            $"Model request failed. Nothing will be updated.".Out(ConsoleColor.Yellow);
+        }
     }
 
     [RelayCommand] public void RefreshInputDevices() => Application.Current.Dispatcher.Invoke(RefreshInputDevicesImmediate);
     private void RefreshInputDevicesImmediate()
     {
-        Console.WriteLine("Restart");
+        $"Refreshing input devices...".Out();
         var collection = new MMDeviceEnumerator().EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
         if (collection.Count == 0)
         {
@@ -220,5 +327,6 @@ public partial class ViewModel : ObservableObject
 
         id = ActiveAudioCaptureDevice.ID;
         SelectedAudioCaptureDevice = AudioCaptureDevices.FirstOrDefault(d => d.ID == id);
+        $"Input devices refreshed! Found: {AudioCaptureDevices.Length}".Out();
     }
 }

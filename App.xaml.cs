@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using VoiceTrigger.VTS;
 
@@ -10,19 +11,15 @@ public partial class App : Application
 {
     public static readonly string LocalAppDataFolder
         = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sandcorp", "Voice Trigger");
-    static App()
-    {
-        try
-        {
-            Directory.CreateDirectory(LocalAppDataFolder);
-        }
-        catch (Exception ex)
-        {
-            ex.Out($"File access is restricted. Information won't save between sessions.\n");
-        }
-    }
+    
+    public static RootViewModel RootViewModel => (RootViewModel)Current.Resources[nameof(VoiceTrigger.RootViewModel)];
+    public static Color IndicatoKobiColor => (Color)Current.Resources[nameof(IndicatoKobiColor)];
+    public static Brush IndicatoKobiBrush => (Brush)Current.Resources[nameof(IndicatoKobiBrush)];
+    public static Color IndicatoIBOKColor => (Color)Current.Resources[nameof(IndicatoIBOKColor)];
+    public static Brush IndicatoIBOKBrush => (Brush)Current.Resources[nameof(IndicatoIBOKBrush)];
+    public static Color IndicatoFronzenColor => (Color)Current.Resources[nameof(IndicatoFronzenColor)];
+    public static Brush IndicatoFronzenBrush => (Brush)Current.Resources[nameof(IndicatoFronzenBrush)];
 
-    public static ViewModel ViewModel { get; private set; } = null!;
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -34,18 +31,13 @@ public partial class App : Application
             return;
         }
 
-        //VTubeStudioDiscovery.Instance.Start();
+        RootViewModel = 
         VTubeStudio.Instance.Start();
-
-        //ViewModel = (ViewModel)Current.Resources[nameof(ViewModel)];
-        //MainWindow = new MainWindow { DataContext = ViewModel };
-        //MainWindow.Show();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         base.OnExit(e);
-        //VTubeStudioDiscovery.Instance.Stop();
         VTubeStudio.Instance.Stop();
     }
 }
