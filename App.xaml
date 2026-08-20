@@ -5,7 +5,7 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:style="clr-namespace:VoiceTrigger.Styles"
     xmlns:local="clr-namespace:VoiceTrigger"
-    StartupUri="MainWindow.xaml"
+    StartupUri="Controls/MainWindow.xaml"
     ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>

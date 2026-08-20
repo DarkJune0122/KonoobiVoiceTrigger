@@ -31,7 +31,6 @@ public partial class App : Application
             return;
         }
 
-        RootViewModel = 
         VTubeStudio.Instance.Start();
     }
 

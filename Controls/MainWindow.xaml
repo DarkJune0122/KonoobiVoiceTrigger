@@ -8,14 +8,14 @@
     xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
     xmlns:local="clr-namespace:VoiceTrigger"
     mc:Ignorable="d"
-    DataContext="{StaticResource ViewModel}"
+    DataContext="{StaticResource RootViewModel}"
     Background="{ui:ThemeResource ApplicationBackgroundBrush}"
     Closing="Window_HideInstead"
     Activated="Window_Activeted"
 
     ExtendsContentIntoTitleBar="True"
     ResizeMode="NoResize"
-    Title="MainWindow" MinHeight="90" Height="90" MinWidth="560" Width="560">
+    Title="MainWindow" MinHeight="90" Height="184" MinWidth="560" Width="560">
     <ui:FluentWindow.Resources>
         <!--<Style x:Key="TitleButtonStyle" TargetType="ui:Button">
             <Setter Property="BorderThickness" Value="0"/>
@@ -26,10 +26,10 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="0" />
         </Grid.RowDefinitions>
-        <Grid Grid.Row="1" VerticalAlignment="Center">
+        <Grid Grid.Row="1" VerticalAlignment="Center" Margin="0,0,128,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="6" />
                 <RowDefinition Height="4" />
@@ -37,6 +37,7 @@
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
@@ -64,6 +65,14 @@
             <Grid Margin="8,0,0,0" Grid.Column="2" Grid.RowSpan="3">
                 
             </Grid>
+        </Grid>
+        
+        <Grid Grid.Row="1" VerticalAlignment="Center" Margin="0,0,8,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="128" />
+            </Grid.ColumnDefinitions>
+            <Rectangle Grid.Column="1" Width="128" Height="128" Fill="Gray" />
         </Grid>
 
         <!--Title Bar-->

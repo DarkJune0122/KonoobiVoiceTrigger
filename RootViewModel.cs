@@ -1,7 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
-using System.Collections.ObjectModel;
 using System.Drawing;
 using System.Windows.Threading;
 using VoiceTrigger.VTS;
@@ -101,7 +100,7 @@ public sealed partial class RootViewModel : ObservableObject
         //VTubeStudio.Instance.OnAuthenticated //...
     }
 
-    
+
 
     partial void OnTriggeredChanged(bool value)
     {
