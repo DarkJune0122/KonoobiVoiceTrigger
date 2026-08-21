@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Windows.Input;
 using System.Windows.Interop;
 using VoiceTrigger.Services;
 using Wpf.Ui.Controls;
@@ -115,9 +116,31 @@ public partial class MainWindow : FluentWindow
         });
     }
 
-    private void Window_Activeted(object sender, EventArgs e)
+    private void FluentWindow_Activated(object sender, EventArgs e)
     {
         if (DataContext is RootViewModel model)
-            model.RefreshInputDevices();
+            model.Activate();
+        else $"Not a {nameof(RootViewModel)}!".Out(ConsoleColor.Yellow);
+    }
+
+    private void FluentWindow_Deactivated(object sender, EventArgs e)
+    {
+        if (DataContext is RootViewModel model)
+            model.Deactivate();
+        else $"Not a {nameof(RootViewModel)}!".Out(ConsoleColor.Yellow);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        //if (e.Key == Key.Y)
+        //{
+        //    TestBox.ItemsSource = new string[] { "a", "b", "c" };
+        //    TestBox.SelectedIndex = 2;
+        //}
+        //if (e.Key == Key.I)
+        //{
+        //    TestBox.ItemsSource = Array.Empty<string>();
+        //    TestBox.SelectedItem.Out("Selected: ", ConsoleColor.Yellow);
+        //}
     }
 }

@@ -55,6 +55,7 @@ public class VTSResponseData : VTSPacketData
     /// </summary>
     public bool Succeeded => ErrorID == 0;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     [JsonPropertyName("errorID")] public long ErrorID { get; set; }
     [JsonPropertyName("message")] public string? Message { get; set; }
 

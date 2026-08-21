@@ -86,7 +86,7 @@ public sealed partial class VTubeStudioDiscovery : ObservableObject
     private async void Communication(ushort port, CancellationTokenSource identity)
     {
         CancellationToken token = identity.Token;
-        UdpClient client = new(port);
+        using UdpClient client = new(port);
         while (!token.IsCancellationRequested)
         {
             try

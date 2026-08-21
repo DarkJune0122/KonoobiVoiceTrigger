@@ -19,8 +19,8 @@ public sealed class VTSSocket : IDisposable
     public readonly Encoding Encoding;
 
     byte[] Buffer = ArrayPool<byte>.Shared.Rent(InitialBufferSize);
-    readonly SemaphoreSlim ReceiveSemaphore = new(1); // WARNING! Mutexes here break in Async code! Replace with SemihoreSlim!
-    readonly SemaphoreSlim SendSemaphore = new(1); // WARNING! Mutexes here break in Async code! Replace with SemihoreSlim!
+    readonly SemaphoreSlim ReceiveSemaphore = new(1); // WARNING! Mutexes here break in Async code! Replace with SemaphoreSlim!
+    readonly SemaphoreSlim SendSemaphore = new(1); // WARNING! Mutexes here break in Async code! Replace with SemaphoreSlim!
     readonly Lock Lock = new();
     volatile bool IsStarted;
     volatile bool Disposed;
@@ -51,6 +51,7 @@ public sealed class VTSSocket : IDisposable
         $"Sending:\n{json}".Out(ConsoleColor.Magenta);
         return SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true);
     }
+
     ValueTask SendAsync(ReadOnlySpan<byte> bytes, WebSocketMessageType type, bool endOfMessage)
     {
         using (Lock.EnterScope())
@@ -72,7 +73,6 @@ public sealed class VTSSocket : IDisposable
         {
             await WebSocket.SendAsync(new Memory<byte>(bytes, 0, length), type, endOfMessage, Token);
         }
-        catch (Exception ex) { ex.Out(); }
         finally
         {
             SendSemaphore.Release();

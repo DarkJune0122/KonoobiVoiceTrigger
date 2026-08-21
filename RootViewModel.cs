@@ -71,13 +71,16 @@ public sealed partial class RootViewModel : ObservableObject
     [ObservableProperty] public partial bool AudioCaptureEnabled { get; set; }
     [ObservableProperty] public partial DeviceViewModel[] AudioCaptureDevices { get; set; } = [];
     [ObservableProperty] public partial DeviceViewModel? SelectedAudioCaptureDevice { get; set; }
+    [ObservableProperty] public partial ExpressionViewModel[] ModelExpressions { get; set; } = [];
+    [ObservableProperty] public partial ExpressionViewModel? SelectedModelExpression { get; set; }
+    [ObservableProperty] public partial bool SelectedModelExpressionExists { get; set; }
     [ObservableProperty] public partial VTSModelViewModel[] VTSModels { get; set; } = [];
     [ObservableProperty] public partial double ActivationThreshold { get; set; } = 0.12;
     [ObservableProperty] public partial bool IsVolumeActivated { get; set; }
     [ObservableProperty] public partial bool Triggered { get; set; }
     [ObservableProperty] public partial bool Frozen { get; set; }
     [ObservableProperty] public partial Color IndicatorColor { get; set; }
-    [ObservableProperty] public partial Brush IndicatorBrush { get; set; }
+    [ObservableProperty] public partial Brush IndicatorBrush { get; set; } = Brushes.LimeGreen;
     [ObservableProperty] public partial double TriggerProgress { get; set; }
     [ObservableProperty] public partial double TriggerChargeBoost { get; set; } = 0.2;
     [ObservableProperty] public partial double ChargeTime { get; set; } = 3.2;
@@ -99,8 +102,6 @@ public sealed partial class RootViewModel : ObservableObject
         //  Calculate triggered state based on event feedbacks (unless VTS is disabled?)
         //VTubeStudio.Instance.OnAuthenticated //...
     }
-
-
 
     partial void OnTriggeredChanged(bool value)
     {
@@ -255,20 +256,28 @@ public sealed partial class RootViewModel : ObservableObject
         }
     }
 
+    bool IsActivated;
     [RelayCommand] public void Activate() => Application.Current.Dispatcher.Invoke(ActivateImmediate);
     private void ActivateImmediate()
     {
-        RefreshInputDevicesImmediate();
-        VTubeStudio.Instance.OnAuthenticated += HandleAuthenticated;
-        if (VTubeStudio.Instance.Authenticated)
+        if (IsActivated) return;
+        try
         {
-            HandleAuthenticated();
+            IsActivated = true;
+            RefreshInputDevicesImmediate();
+            _ = RefreshExpressions();
+            VTubeStudio.Instance.OnAuthenticated += HandleAuthenticated;
+            if (VTubeStudio.Instance.Authenticated)
+                HandleAuthenticated();
         }
+        catch { IsActivated = false; throw; }
     }
 
     [RelayCommand] public void Deactivate() => Application.Current.Dispatcher.Invoke(DeactivateImmediate);
     private void DeactivateImmediate()
     {
+        if (!IsActivated) return;
+        IsActivated = false;
         VTubeStudio.Instance.OnAuthenticated -= HandleAuthenticated;
     }
 
@@ -327,5 +336,119 @@ public sealed partial class RootViewModel : ObservableObject
         id = ActiveAudioCaptureDevice.ID;
         SelectedAudioCaptureDevice = AudioCaptureDevices.FirstOrDefault(d => d.ID == id);
         $"Input devices refreshed! Found: {AudioCaptureDevices.Length}".Out();
+    }
+
+    Task? RefreshTask;
+
+    [RelayCommand]
+    public Task RefreshExpressions()
+    {
+        if (RefreshTask is null || RefreshTask.IsCompleted)
+        {
+            return RefreshTask = RefreshExpressionsInternal();
+        }
+        else return RefreshTask;
+    }
+    async Task RefreshExpressionsInternal()
+    {
+        $"Refreshing model expression list..".Out();
+        if (VTubeStudio.Instance.Status != VTSStatus.Authenticated)
+        {
+            $"VTS not authenticated (Status: {VTubeStudio.Instance.Status}). Resetting expression list.".Out();
+            Application.Current.Dispatcher.Invoke(ResetExpressions);
+            return;
+        }
+        var result = await VTubeStudio.Instance.Request<VTSExpressionStateResponse>(new VTSExpressionStateRequest
+        {
+            Data = new()
+            {
+                Details = false,
+                ExpressionFile = string.Empty,
+            }
+        });
+        if (result.ResolveSuccess(out var response) && response.Data is not null)
+        {
+            if (!response.Data.ModelLoaded || response.Data.Expressions is null)
+            {
+                Application.Current.Dispatcher.Invoke(ResetExpressions);
+            }
+            else
+            {
+                var list = response.Data.Expressions.Select(e => new ExpressionViewModel()
+                {
+                    ModelID = response.Data.ModelID ?? string.Empty,
+                    ModelName = response.Data.ModelName ?? string.Empty,
+                    Name = e.Name ?? string.Empty,
+                    DisplayName = e.Name ?? string.Empty,
+                    Exists = true,
+                }).ToList();
+                Application.Current.Dispatcher.Invoke(() => SetExpressions(list));
+            }
+            $"Expression list refreshed successfully!".Out();
+        }
+        else
+        {
+            $"Cannot refresh model parameters! Received:\n{result}".Out(ConsoleColor.Yellow);
+        }
+
+        void ResetExpressions() => SetExpressions([]);
+        void SetExpressions(List<ExpressionViewModel> expressions)
+        {
+            if (expressions.Count == 0)
+            {
+                if (SelectedModelExpression is not null)
+                {
+                    SelectedModelExpression.Exists = false;
+                    ModelExpressions = [SelectedModelExpression];
+                }
+                else ModelExpressions = [];
+                return;
+            }
+
+            if (SelectedModelExpression is not null)
+            {
+                var selected = SelectedModelExpression;
+                if (expressions.Contains(selected))
+                {
+                    selected.Exists = true;
+                }
+                else
+                {
+                    var similar = expressions.Find(ex => ex.Name == selected.Name);
+                    if (similar is not null)
+                    {
+                        selected = similar;
+                        selected.Exists = true;
+                    }
+                    else
+                    {
+                        expressions.Add(selected);
+                        selected.Exists = false;
+                    }
+                }
+
+                SelectedModelExpression = null;
+                ModelExpressions = [.. expressions];
+                SelectedModelExpression = selected;
+            }
+            else
+            {
+                SelectedModelExpression = null;
+                ModelExpressions = [.. expressions];
+            }
+        }
+    }
+
+    partial void OnSelectedModelExpressionChanged(ExpressionViewModel? value)
+    {
+        SelectedModelExpressionExists = value is not null && value.Exists;
+
+        // Don't clean-up unless selected a valid expression.
+        // Makes sure you can select non-existing expressions if you have any from a previous model.
+        if (!SelectedModelExpressionExists) return;
+        if (Array.Exists(ModelExpressions, static e => !e.Exists))
+        {
+            ModelExpressions = ModelExpressions.Where(static e => e.Exists).ToArray();
+        }
     }
 }

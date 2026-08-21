@@ -6,7 +6,7 @@ namespace VoiceTrigger.VTS;
 
 public readonly struct VTSRequestResult
 {
-    // This is prefered, since it allows to not write "<T>" on each usage..
+    // This is preferred, since it allows to not write "<T>" on each usage..
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static VTSRequestResult<T> FromResult<T>(T? data) where T : VTSResponseTemplate => VTSRequestResult<T>.FromResult(data);
 }
@@ -30,4 +30,6 @@ public readonly struct VTSRequestResult<T> where T : VTSResponseTemplate
         response = Response;
         return Success;
     }
+
+    public override string ToString() => $"Request Result: {(Success ? "Success" : "Failure")}, Response: {Response}";
 }

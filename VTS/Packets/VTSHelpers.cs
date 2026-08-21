@@ -70,4 +70,10 @@ public static class VTSHelpers
         b.Append(prefix).Append('}');
         return b;
     }
+
+    public static StringBuilder StringWriter(string line, StringBuilder b, string prefix = DefaultPrefix)
+    {
+        b.Append(line);
+        return b;
+    }
 }

@@ -11,11 +11,12 @@
     DataContext="{StaticResource RootViewModel}"
     Background="{ui:ThemeResource ApplicationBackgroundBrush}"
     Closing="Window_HideInstead"
-    Activated="Window_Activeted"
+    Activated="FluentWindow_Activated"
+    Deactivated="FluentWindow_Deactivated"
 
     ExtendsContentIntoTitleBar="True"
     ResizeMode="NoResize"
-    Title="MainWindow" MinHeight="90" Height="184" MinWidth="560" Width="560">
+    Title="MainWindow" MinHeight="90" Height="240" MinWidth="720" Width="560">
     <ui:FluentWindow.Resources>
         <!--<Style x:Key="TitleButtonStyle" TargetType="ui:Button">
             <Setter Property="BorderThickness" Value="0"/>
@@ -23,63 +24,13 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>-->
     </ui:FluentWindow.Resources>
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="0" />
-        </Grid.RowDefinitions>
-        <Grid Grid.Row="1" VerticalAlignment="Center" Margin="0,0,128,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="6" />
-                <RowDefinition Height="4" />
-                <RowDefinition Height="6" />
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <!--Indicators-->
-            <Grid Margin="4,0,4,0" Grid.Row="0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={x:Static local:DoubleToPercentConverter.Instance}}"/>
-                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={x:Static local:DoubleToRemainingPercentConverter.Instance}}"/>
-                </Grid.ColumnDefinitions>
-                <Rectangle Grid.Column="0" Fill="LimeGreen" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-                <Rectangle Grid.Column="1" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-            </Grid>
-            <Grid Margin="4,0,4,0" Grid.Row="2">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={x:Static local:DoubleToPercentConverter.Instance}}"/>
-                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={x:Static local:DoubleToRemainingPercentConverter.Instance}}"/>
-                </Grid.ColumnDefinitions>
-                <Rectangle Grid.Column="0" Fill="LimeGreen" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-                <Rectangle Grid.Column="1" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-            </Grid>
-            <!--Content-->
-            <Grid Margin="8,0,0,0" Grid.Column="1" Grid.RowSpan="3">
-                
-            </Grid>
-            <Grid Margin="8,0,0,0" Grid.Column="2" Grid.RowSpan="3">
-                
-            </Grid>
-        </Grid>
-        
-        <Grid Grid.Row="1" VerticalAlignment="Center" Margin="0,0,8,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="128" />
-            </Grid.ColumnDefinitions>
-            <Rectangle Grid.Column="1" Width="128" Height="128" Fill="Gray" />
-        </Grid>
+    <StackPanel Orientation="Vertical">
 
         <!--Title Bar-->
         <ui:TitleBar Height="35" HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
                      ShowMaximize="False" ShowMinimize="False" ShowClose="False" ShowHelp="False">
             <ui:TitleBar.Header>
-                <Grid x:Name="Header" Width="560">
+                <Grid x:Name="Header" Width="720">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -133,6 +84,39 @@
             </ui:TitleBar.Header>
         </ui:TitleBar>
         
+        <!--Combo boxed under header-->
+        <Grid Margin="4,0,4,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ComboBox Grid.Column="0" MinWidth="240"
+                      ItemsSource="{Binding AudioCaptureDevices, Mode=OneTime}"
+                      SelectedItem="{Binding SelectedAudioCaptureDevice, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <ui:TextBlock Text="{Binding DisplayName}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <!--<ComboBox Grid.Column="1" x:Name="TestBox"></ComboBox>-->
+            
+            <ComboBox Grid.Column="2" MinWidth="240"
+                      ItemsSource="{Binding ModelExpressions, Mode=OneTime}"
+                      SelectedItem="{Binding SelectedModelExpression, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Vertical">
+                            <ui:TextBlock Text="{Binding DisplayName}"/>
+                            <ui:TextBlock Text="{Binding ModelName}" Margin="8,0,0,0" FontSize="12" FontStyle="Italic" Foreground="Gray" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
         <!--Tray icon-->
         <tray:NotifyIcon
             Grid.Column="0"
@@ -154,5 +138,74 @@
                 </ContextMenu>
             </tray:NotifyIcon.Menu>
         </tray:NotifyIcon>
-    </Grid>
+    </StackPanel>
+    <!--<Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="0" />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="1" VerticalAlignment="Center" Margin="128,0,128,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="6" />
+                <RowDefinition Height="4" />
+                <RowDefinition Height="6" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            --><!--Indicators--><!--
+            <Grid Margin="4,0,4,0" Grid.Row="0" Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={x:Static local:DoubleToPercentConverter.Instance}}"/>
+                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={x:Static local:DoubleToRemainingPercentConverter.Instance}}"/>
+                </Grid.ColumnDefinitions>
+                <Rectangle Grid.Column="0" Fill="LimeGreen" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <Rectangle Grid.Column="1" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+            </Grid>
+            <Grid Margin="4,0,4,0" Grid.Row="2" Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={x:Static local:DoubleToPercentConverter.Instance}}"/>
+                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={x:Static local:DoubleToRemainingPercentConverter.Instance}}"/>
+                </Grid.ColumnDefinitions>
+                <Rectangle Grid.Column="0" Fill="LimeGreen" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <Rectangle Grid.Column="1" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+            </Grid>
+            --><!--Content--><!--
+            <Grid Margin="8,0,0,0" Grid.Column="2" Grid.RowSpan="3">
+                
+            </Grid>
+            <Grid Margin="8,0,0,0" Grid.Column="3" Grid.RowSpan="3">
+                
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="1" VerticalAlignment="Center" Margin="0,0,8,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="128" />
+            </Grid.ColumnDefinitions>
+            <Rectangle Grid.Column="1" Width="128" Height="128" Fill="Gray" />
+        </Grid>
+
+        <Grid Grid.Row="1" VerticalAlignment="Center" Margin="0,0,8,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="128" />
+            </Grid.ColumnDefinitions>
+            <Rectangle Grid.Column="1" Width="128" Height="128" Fill="Gray" />
+        </Grid>
+
+        <Grid Grid.Row="1" VerticalAlignment="Center" Margin="0,0,8,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="128" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Rectangle Grid.Column="0" Width="128" Height="128" Fill="Gray" />
+        </Grid>
+    </Grid>-->
 </ui:FluentWindow>

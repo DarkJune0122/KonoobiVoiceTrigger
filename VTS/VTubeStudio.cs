@@ -26,9 +26,11 @@ public sealed partial class VTubeStudio : ObservableObject
     [ObservableProperty] public partial bool Authenticated { get; private set; }
 
     readonly ConcurrentDictionary<string, TaskCompletionSource<VTSSocket.ReceiveResult>> Requests = new();
-    readonly Channel<string> SendQueue = Channel.CreateUnbounded<string>();
+    readonly Channel<PacketData> SendQueue = Channel.CreateUnbounded<PacketData>();
     readonly Lock SocketLock = new();
     VTSSocket? Socket;
+
+    public readonly record struct PacketData(string RequestID, string Json);
 
     partial void OnStatusChanged(VTSStatus value) => Authenticated = value == VTSStatus.Authenticated;
     partial void OnAuthenticatedChanged(bool value)
@@ -62,8 +64,7 @@ public sealed partial class VTubeStudio : ObservableObject
             {
                 if (Socket is not null)
                 {
-                    if (Socket.Identity.IsCancellationRequested)
-                        Socket.Identity.Cancel(); // Lets socket quit gracefully.
+                    socket = Socket;
                     Socket = null;
                 }
             }
@@ -73,9 +74,9 @@ public sealed partial class VTubeStudio : ObservableObject
     }
 
     void SetStatus(VTSSocket socket, VTSStatus status) => Application.Current.Dispatcher.Invoke(() => SetStatusImmediate(socket, status));
-    void SetStatusImmediate(VTSSocket socjet, VTSStatus status)
+    void SetStatusImmediate(VTSSocket socket, VTSStatus status)
     {
-        if (Socket != socjet) return;
+        if (Socket != socket) return;
         try
         {
             Status = status;
@@ -124,7 +125,7 @@ public sealed partial class VTubeStudio : ObservableObject
                         goto TokenRestoreEnd;
                     }
 
-                    var result = await Request<VTSAuthenticationResponse>(new VTSAuthenticationRequest
+                    var result = await SystemRequest<VTSAuthenticationResponse>(new VTSAuthenticationRequest
                     {
                         Data = new()
                         {
@@ -166,8 +167,8 @@ public sealed partial class VTubeStudio : ObservableObject
                         ex.Out($"{this} Cannot load-in the image for a plugin.");
                     }
 
-                    $"{this} Aquiring new Authentication Token...".Out();
-                    var result = await Request<VTSAuthenticationTokenResponse>(new VTSAuthenticationTokenRequest
+                    $"{this} Acquiring new Authentication Token...".Out();
+                    var result = await SystemRequest<VTSAuthenticationTokenResponse>(new VTSAuthenticationTokenRequest
                     {
                         Data = new()
                         {
@@ -205,6 +206,7 @@ public sealed partial class VTubeStudio : ObservableObject
 
                 // Lets user use the socket until any issues happen.
                 await Task.WhenAll(a, b);
+                //"Remote has quit".Out(ConsoleColor.Red);
                 break;
             }
             catch (WebSocketException) { break; }
@@ -223,10 +225,19 @@ public sealed partial class VTubeStudio : ObservableObject
             $"{this} Restarting {nameof(VTSSocket)}...".Out();
         }
 
+        try
+        {
+            var list = Requests.ToList();
+            Requests.Clear();
+            foreach (var request in list)
+                request.Value.TrySetResult(VTSSocket.ReceiveResult.Faulted);
+        }
+        catch (Exception ex) { ex.Out(); }
+
         SetStatus(socket, VTSStatus.Offline);
         socket.Dispose();
         StopInternal(socket);
-        $"{this} {nameof(VTSSocket)} stopped.".Out();
+        $"{this} {nameof(VTSSocket)} stopped.".Out(ConsoleColor.Yellow);
     }
 
     async Task<ushort> DiscoverPort(CancellationToken token)
@@ -273,16 +284,13 @@ public sealed partial class VTubeStudio : ObservableObject
             try
             {
                 result = await socket.ReceiveAsync();
+                if (socket.WebSocket.State != WebSocketState.Open) break;
                 if (!result.Success)
                 {
                     $"{this} Receive failed!".Out(ConsoleColor.Yellow);
-                    if (socket.WebSocket.State != WebSocketState.Open) break;
-                    else
-                    {
-                        await Task.Delay(100, token);
-                        $"{this} Restarting receive handler...".Out();
-                        continue;
-                    }
+                    await Task.Delay(100, token);
+                    $"{this} Restarting receive handler...".Out();
+                    continue;
                 }
 
                 var packet = JsonSerializer.Deserialize<VTSResponse>(result.Message, VTSPackets.JsonOptions);
@@ -290,7 +298,7 @@ public sealed partial class VTubeStudio : ObservableObject
                 {
                     $"Cannot read RequestID from input data: {result.Message}".Out(ConsoleColor.Yellow);
                 }
-                else if (Requests.TryRemove(packet.RequestID, out var receiver) && receiver.TrySetResult(result))
+                else if (Requests.TryRemove(packet.RequestID, out var receiver))
                 {
                     if (receiver.TrySetResult(result))
                     {
@@ -312,37 +320,82 @@ public sealed partial class VTubeStudio : ObservableObject
             catch (Exception ex) { ex.Out(ToString()); break; }
             finally { result.Dispose(); }
         }
-        $"{this} Receive handler Stopped gracefully.".Out();
-        StopInternal(socket);
+
+        bool graceful = true;
+        try
+        {
+            if (!socket.Identity.IsCancellationRequested)
+                socket.Identity.Cancel(); // Lets socket quit gracefully.
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex)
+        {
+            ex.Out("Receive handler stopped, but wasn't able to cancel the socket gracefully.", ConsoleColor.Yellow);
+            graceful = false;
+        }
+        if (graceful) $"{this} Send handler Stopped gracefully.".Out();
     }
 
     async Task Send(VTSSocket socket)
     {
         $"{this} Starting Send handler...".Out();
         CancellationToken token = socket.Token;
-        await foreach (var json in SendQueue.Reader.ReadAllAsync(token))
+        try
         {
-            try
+            while (!token.IsCancellationRequested)
             {
-                token.ThrowIfCancellationRequested();
-                await socket.SendAsync(json);
+                var packet = await SendQueue.Reader.ReadAsync(token);
+                try
+                {
+                    token.ThrowIfCancellationRequested();
+                    await socket.SendAsync(packet.Json);
+                }
+                catch (WebSocketException)
+                {
+                    if (Requests.TryGetValue(packet.RequestID, out var request))
+                        request.TrySetResult(VTSSocket.ReceiveResult.Faulted);
+                    break;
+                }
             }
-            catch (WebSocketException) { break; }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex) { ex.Out(ToString()); break; }
         }
-        $"{this} Send handler Stopped gracefully.".Out();
-        StopInternal(socket);
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { ex.Out(ToString()); }
+
+        bool graceful = true;
+        try
+        {
+            if (!socket.Identity.IsCancellationRequested)
+                socket.Identity.Cancel(); // Lets socket quit gracefully.
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex)
+        {
+            ex.Out("Send handler stopped, but wasn't able to cancel the socket gracefully.", ConsoleColor.Yellow);
+            graceful = false;
+        }
+        if (graceful) $"{this} Send handler Stopped gracefully.".Out();
     }
 
-    public async ValueTask<bool> Request(VTSRequestTemplate request)
+    public ValueTask<bool> Request(VTSRequestTemplate request)
     {
-        return (await RequestInternal(request, static result => VTSRequestResult.FromResult(VTSPackets.DummyResponse))).Success;
+        if (Status != VTSStatus.Authenticated)
+            return ValueTask.FromResult(false);
+        return SystemRequest(request);
+    }
+    async ValueTask<bool> SystemRequest(VTSRequestTemplate request)
+    {
+        return (await SystemRequestInternal(request, static result => VTSRequestResult.FromResult(VTSPackets.DummyResponse))).Success;
     }
 
     public ValueTask<VTSRequestResult<T>> Request<T>(VTSRequestTemplate request) where T : VTSResponseTemplate
     {
-        return RequestInternal(request, static result =>
+        if (Status != VTSStatus.Authenticated)
+            return ValueTask.FromResult(VTSRequestResult<T>.Failed);
+        return SystemRequest<T>(request);
+    }
+    ValueTask<VTSRequestResult<T>> SystemRequest<T>(VTSRequestTemplate request) where T : VTSResponseTemplate
+    {
+        return SystemRequestInternal(request, static result =>
         {
             T? packet = JsonSerializer.Deserialize<T>(result.Message, VTSPackets.JsonOptions);
             if (packet is null) return VTSRequestResult<T>.Failed;
@@ -351,9 +404,10 @@ public sealed partial class VTubeStudio : ObservableObject
     }
 
     delegate VTSRequestResult<T> RequestProcessor<T>(VTSSocket.ReceiveResult result) where T : VTSResponseTemplate;
-    async ValueTask<VTSRequestResult<T>> RequestInternal<T>(VTSRequestTemplate request, RequestProcessor<T> processor)
+    async ValueTask<VTSRequestResult<T>> SystemRequestInternal<T>(VTSRequestTemplate request, RequestProcessor<T> processor)
         where T : VTSResponseTemplate
     {
+        Status.Out("Status: ");
         if (typeof(T).IsAbstract)
             throw new ArgumentException($"Cannot use abstract class ({typeof(T).Name}) in {nameof(VTubeStudio)}.{nameof(Request)} method!");
         if (Status == VTSStatus.Offline)
@@ -388,7 +442,7 @@ public sealed partial class VTubeStudio : ObservableObject
                 return VTSRequestResult<T>.Failed;
             }
 
-            await SendQueue.Writer.WriteAsync(json);
+            await SendQueue.Writer.WriteAsync(new(requestID, json));
             using var cancellation = new CancellationTokenSource(RequestTimeout);
             using var registration = cancellation.Token.Register(() => { "Timeout!".Out(ConsoleColor.Yellow); source.TrySetCanceled(); });
             using var result = await source.Task;
@@ -400,7 +454,7 @@ public sealed partial class VTubeStudio : ObservableObject
 
             return processor(result);
         }
-        catch (OperationCanceledException) { /* Websocket connection was stopped. */ }
+        catch (OperationCanceledException) { /* WebSocket connection was stopped. */ }
         catch (Exception ex)
         {
             ex.Out($"Request for ({typeof(T).Name}) failed!");
