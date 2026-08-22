@@ -5,6 +5,7 @@ using System.IO;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading.Channels;
+using VoiceTrigger.VTS.Events;
 using VoiceTrigger.VTS.Packets;
 using VoiceTrigger.VTS.Requests;
 
@@ -22,6 +23,7 @@ public sealed partial class VTubeStudio : ObservableObject
     public event Action? OnUnauthenticated;
     public event Action<bool>? OnAuthenticationChanged;
 
+    public VTubeStudioEvents Events { get; init; } = new();
     [ObservableProperty] public partial VTSStatus Status { get; private set; }
     [ObservableProperty] public partial bool Authenticated { get; private set; }
 
@@ -31,6 +33,12 @@ public sealed partial class VTubeStudio : ObservableObject
     VTSSocket? Socket;
 
     public readonly record struct PacketData(string RequestID, string Json);
+
+    public VTubeStudio()
+    {
+        Events.Map<VTSTestEvent>("TestEvent");
+        Events.Map<VTSHotkeyTriggeredEvent>("HotkeyTriggeredEvent");
+    }
 
     partial void OnStatusChanged(VTSStatus value) => Authenticated = value == VTSStatus.Authenticated;
     partial void OnAuthenticatedChanged(bool value)
@@ -293,25 +301,39 @@ public sealed partial class VTubeStudio : ObservableObject
                     continue;
                 }
 
-                var packet = JsonSerializer.Deserialize<VTSResponse>(result.Message, VTSPackets.JsonOptions);
-                if (packet is null || packet.RequestID == default)
+                using JsonDocument doc = JsonDocument.Parse(result.Message, VTSPackets.DocumentOptions);
+                if (Events.TryFire(doc))
+                    continue;
+
+                if (doc.RootElement.TryGetProperty(VTSPackets.RequestIDJsonPropertyName, out var element))
                 {
-                    $"Cannot read RequestID from input data: {result.Message}".Out(ConsoleColor.Yellow);
-                }
-                else if (Requests.TryRemove(packet.RequestID, out var receiver))
-                {
-                    if (receiver.TrySetResult(result))
+                    if (element.ValueKind != JsonValueKind.String)
                     {
-                        result = default;
+                        $"RequestID field type is not String! Json payload is ignored.".Out(ConsoleColor.Yellow);
+                        continue;
+                    }
+
+                    string? requestID = element.GetString();
+                    if (string.IsNullOrEmpty(requestID))
+                    {
+                        $"Received empty RequestID ({requestID}). Json payload is ignored.".Out(ConsoleColor.Yellow);
+                        continue;
+                    }
+                    if (Requests.TryRemove(requestID, out var receiver))
+                    {
+                        if (receiver.TrySetResult(result))
+                        {
+                            result = default;
+                        }
+                        else
+                        {
+                            $"Cannot set request result for RequestID: {requestID}. It's likely that it timed out.".Out(ConsoleColor.Yellow);
+                        }
                     }
                     else
                     {
-                        $"Cannot set request result for RequestID: {packet.RequestID}. It's likely that it timed out.".Out(ConsoleColor.Yellow);
+                        $"Cannot find a receiver for RequestID: {requestID}. It's likely that it timed out.".Out(ConsoleColor.Yellow);
                     }
-                }
-                else
-                {
-                    $"Cannot find a receiver for RequestID: {packet.RequestID}. It's likely that it timed out.".Out(ConsoleColor.Yellow);
                 }
             }
             catch (JsonException) { /* Simply does for the next receive request. */ }
@@ -397,7 +419,7 @@ public sealed partial class VTubeStudio : ObservableObject
     {
         return SystemRequestInternal(request, static result =>
         {
-            T? packet = JsonSerializer.Deserialize<T>(result.Message, VTSPackets.JsonOptions);
+            T? packet = JsonSerializer.Deserialize<T>(result.Message.Span, VTSPackets.JsonOptions);
             if (packet is null) return VTSRequestResult<T>.Failed;
             return VTSRequestResult<T>.FromResult(packet);
         });
@@ -462,7 +484,8 @@ public sealed partial class VTubeStudio : ObservableObject
         finally
         {
             if (requestID is not null)
-                Requests.TryRemove(requestID, out _);
+                if (Requests.TryRemove(requestID, out var src))
+                    src.TrySetCanceled();
         }
 
         return VTSRequestResult<T>.Failed;
@@ -470,83 +493,3 @@ public sealed partial class VTubeStudio : ObservableObject
 
     public override string ToString() => $"[{nameof(VTubeStudio)}]";
 }
-
-/*
-// Requesting a list of models.
-string? loadedModelID = null;
-{
-    $"Requesting a list of models...".Out();
-    var result = await Request<VTSAvailableModelsResponse>(new VTSAvailableModelsRequest());
-    if (result.ResolveSuccess(out var response))
-    {
-        var item = response.Data?.AvailableModels?.FirstOrDefault(static d => d.ModelLoaded);
-        if (item.HasValue && item.Value.ModelLoaded)
-        {
-            loadedModelID = item.Value.ModelID;
-            $"Found an active model! (id: {loadedModelID}, name: {item.Value.ModelName})".Out(ConsoleColor.Green);
-        }
-        else
-        {
-            $"No loaded model found!".Out(ConsoleColor.Yellow);
-        }
-    }
-    else
-    {
-        $"Failed to retrieve a list of models!".Out(ConsoleColor.Yellow);
-    }
-}
-
-// Requesting a list of hotkeys.
-string? targetHotkeyID = null;
-if (!string.IsNullOrEmpty(loadedModelID))
-{
-    $"Requesting a list of hotkeys...".Out();
-    var result = await Request<VTSModelHotkeysResponse>(new VTSModelHotkeysRequest()
-    {
-        Data = new()
-        {
-            ModelID = loadedModelID,
-            Live2DItemFileName = null,
-        }
-    });
-    if (result.ResolveSuccess(out var response))
-    {
-        var item = response.Data?.AvailableHotkeys?.FirstOrDefault(static d => d.Name == "粉双马尾");
-        if (item.HasValue && item.Value.Name == "粉双马尾")
-        {
-            targetHotkeyID = item.Value.HotkeyID;
-            $"Hotkey found! (id: {targetHotkeyID}, name: {item.Value.Name})".Out(ConsoleColor.Green);
-        }
-        else
-        {
-            $"Failed to find a target hotkey!".Out();
-        }
-    }
-    else
-    {
-        $"Failed to retrieve a list of hotkeys!".Out(ConsoleColor.Yellow);
-    }
-}
-
-// Requesting execution of one of them.
-if (!string.IsNullOrEmpty(targetHotkeyID))
-{
-    $"Requesting a hotkey execution...".Out();
-    var result = await Request<VTSHotkeyTriggerResponse>(new VTSHotkeyTriggerRequest()
-    {
-        Data = new()
-        {
-            HotkeyID = targetHotkeyID,
-            ItemInstanceID = null,
-        }
-    });
-    if (result.ResolveSuccess(out var response) && !string.IsNullOrEmpty(response.Data?.HotkeyID))
-    {
-        $"Hotkey triggered successfully!".Out(ConsoleColor.Green);
-    }
-    else
-    {
-        $"Failed to trigger a hotkey!".Out(ConsoleColor.Yellow);
-    }
-}
- */

@@ -5,6 +5,8 @@ namespace VoiceTrigger.VTS.Packets;
 
 public static class VTSPackets
 {
+    public const string RequestIDJsonPropertyName = "requestID";
+    public const string MessageTypeJsonPropertyName = "messageType";
     /// <summary>
     /// Dummy successful request result.
     /// </summary>
@@ -22,5 +24,14 @@ public static class VTSPackets
         AllowTrailingCommas = true,
         PreferredObjectCreationHandling = JsonObjectCreationHandling.Populate,
         UnknownTypeHandling = JsonUnknownTypeHandling.JsonElement,
+    };
+    /// <summary>
+    /// Options to use for Json serialization in <see cref="JsonDocument"/>.
+    /// </summary>
+    public static readonly JsonDocumentOptions DocumentOptions = new()
+    {
+        AllowTrailingCommas = true,
+        CommentHandling = JsonCommentHandling.Skip,
+        MaxDepth = 0, // Maximum.
     };
 }

@@ -84,7 +84,7 @@ public sealed class VTSSocket : IDisposable
     {
         public static readonly ReceiveResult Faulted = new(false, null, 0);
         public readonly bool Success = success;
-        public Span<char> Message => (buffer ?? throw new InvalidOperationException("Result doesn't contain a message.")).AsMemory(0, length).Span;
+        public Memory<char> Message => (buffer ?? throw new InvalidOperationException("Result doesn't contain a message.")).AsMemory(0, length);
         public void Dispose()
         {
             if (buffer is not null)
@@ -102,13 +102,13 @@ public sealed class VTSSocket : IDisposable
 
         try
         {
-            T? data = JsonSerializer.Deserialize<T>(result.Message, VTSPackets.JsonOptions);
+            T? data = JsonSerializer.Deserialize<T>(result.Message.Span, VTSPackets.JsonOptions);
             $"Received:\n{data}".Out(ConsoleColor.Cyan);
             return data;
         }
         catch (JsonException)
         {
-            $"Failed to deserialize {typeof(T)} from data:\n{new string(result.Message)}".Out();
+            $"Failed to deserialize {typeof(T)} from data:\n{new string(result.Message.Span)}".Out();
         }
         finally
         {

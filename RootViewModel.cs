@@ -1,262 +1,387 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
-using System.Drawing;
+using System.Runtime.CompilerServices;
 using System.Windows.Threading;
 using VoiceTrigger.VTS;
+using VoiceTrigger.VTS.Events;
 using VoiceTrigger.VTS.Requests;
 
 namespace VoiceTrigger;
 
-public sealed partial class VTSHotkeyViewModel : ObservableObject
-{
-    public const string DefaultName = "Unknown";
-    public const string DefaultType = "";
-    public const string DefaultDescription = "";
-    public const string DefaultHotkeyID = "";
-
-    [ObservableProperty] public required partial string HotkeyID { get; set; } = DefaultHotkeyID;
-    [ObservableProperty] public required partial string Name { get; set; } = DefaultName;
-    [ObservableProperty] public required partial string Type { get; set; } = DefaultType;
-    [ObservableProperty] public required partial string Description { get; set; } = DefaultDescription;
-}
-
-public sealed partial class VTSModelViewModel : ObservableObject
-{
-    public const string DefaultName = "Unknown";
-    public const string DefaultModelID = "";
-
-    [ObservableProperty] public required partial string ModelID { get; set; } = DefaultModelID;
-    [ObservableProperty] public required partial string Name { get; set; } = DefaultName;
-    [ObservableProperty] public required partial VTSHotkeyViewModel[]? Hotkeys { get; set; }
-
-
-}
-
-public sealed partial class TriggerViewModel(RootViewModel root) : ObservableObject
-{
-    public readonly RootViewModel Root = root;
-
-    [ObservableProperty] public partial VTSModelViewModel? SelectedModel { get; set; }
-    [ObservableProperty] public partial VTSHotkeyViewModel[]? SelectedModelHotkeys { get; set; }
-    [ObservableProperty] public partial VTSHotkeyViewModel? SelectedHotkey { get; set; }
-
-    partial void OnSelectedModelChanged(VTSModelViewModel? value)
-    {
-        if (value is null || value.Hotkeys is null)
-        {
-            SelectedModelHotkeys = null;
-            SelectedHotkey = null;
-            return;
-        }
-
-        SelectedModelHotkeys = value.Hotkeys;
-        if (Array.IndexOf(SelectedModelHotkeys, value) == -1)
-        {
-            SelectedModel = null;
-        }
-    }
-}
-
 // TODO: Serialize states. Move Advanced settings in a separate .cfg file.
-// TODO: Go through the logic and find out - matbe we can make the logic funnier to use? More engaging, etc.
+// TODO: Go through the logic and find out - maybe we can make the logic funnier to use? More engaging, etc.
 public sealed partial class RootViewModel : ObservableObject
 {
-    const long MinBoostSpacingMs = 1000;
+    const long MinimumJumpSpacingMs = 300;
 
-    [ObservableProperty] public partial double AudioGain { get; set; }
+    // Audio input:
     [ObservableProperty] public partial double AudioVolume { get; set; }
-    [ObservableProperty] public partial double LeftAudioVolume { get; set; }
-    [ObservableProperty] public partial double RightAudioVolume { get; set; }
     [ObservableProperty] public partial bool AudioCaptureEnabled { get; set; }
     [ObservableProperty] public partial DeviceViewModel[] AudioCaptureDevices { get; set; } = [];
     [ObservableProperty] public partial DeviceViewModel? SelectedAudioCaptureDevice { get; set; }
-    [ObservableProperty] public partial ExpressionViewModel[] ModelExpressions { get; set; } = [];
-    [ObservableProperty] public partial ExpressionViewModel? SelectedModelExpression { get; set; }
-    [ObservableProperty] public partial bool SelectedModelExpressionExists { get; set; }
-    [ObservableProperty] public partial VTSModelViewModel[] VTSModels { get; set; } = [];
-    [ObservableProperty] public partial double ActivationThreshold { get; set; } = 0.12;
-    [ObservableProperty] public partial bool IsVolumeActivated { get; set; }
-    [ObservableProperty] public partial bool Triggered { get; set; }
-    [ObservableProperty] public partial bool Frozen { get; set; }
-    [ObservableProperty] public partial Color IndicatorColor { get; set; }
-    [ObservableProperty] public partial Brush IndicatorBrush { get; set; } = Brushes.LimeGreen;
-    [ObservableProperty] public partial double TriggerProgress { get; set; }
-    [ObservableProperty] public partial double TriggerChargeBoost { get; set; } = 0.2;
-    [ObservableProperty] public partial double ChargeTime { get; set; } = 3.2;
-    [ObservableProperty] public partial double DischargeTime { get; set; } = 16.0;
+    [ObservableProperty] public partial SamplingRate[] SamplingRates { get; set; } = [];
+    [ObservableProperty] public partial SamplingRate? SelectedSamplingRate { get; set; }
 
-    readonly DispatcherTimer CaptureTimer = new();
+    // Hotkeys & Avatar state.
+    [ObservableProperty] public partial ExpressionHotkey[] Hotkeys { get; set; } = [];
+    [ObservableProperty] public partial bool IsActivated { get; set; }
+    [ObservableProperty] public partial bool IsTriggered { get; set; }
+
+    // Trigger controls.
+    /// <summary>
+    /// Whether system inputs is frozen. Happens when you manually switch the states.
+    /// </summary>
+    /// <remarks>
+    /// Will not unfreeze unless you manually return back to 
+    /// </remarks>
+    [ObservableProperty] public partial bool IsFrozen { get; set; }
+    /// <summary>
+    /// Enables/Disables system unfreezing while Kobi.
+    /// </summary>
+    [ObservableProperty] public partial bool AllowUnfreezeWhileNormal { get; set; } = true;
+    [ObservableProperty] public partial double NormalUnfreezeDelay { get; set; } = 15;
+    /// <summary>
+    /// Enables/Disables system unfreezing while IBOK.
+    /// </summary>
+    [ObservableProperty] public partial bool AllowUnfreezeWhileTriggered { get; set; } = false;
+    [ObservableProperty] public partial double TriggeredUnfreezeDelay { get; set; } = 30;
+
+    /// <summary>
+    /// Audio-meter activation threshold [0.0 - 1.0]
+    /// </summary>
+    [ObservableProperty] public partial double ActivationThreshold { get; set; } = 0.12;
+    /// <summary>
+    /// [0.0 - 1.0] Describes how fast progress bar will move, depending on how loud you are.
+    /// </summary>
+    /// <remarks>
+    /// First, from current audio meter, it calculates remaining delta from <see cref="ActivationThreshold"/>.
+    /// Then, it calculates "relative position" (RP), using <see cref="ActivationThreshold"/> as origin.
+    /// Then, power:
+    /// With RP of 10% (0.1) - it will move 
+    /// </remarks>
+    [ObservableProperty] public partial double ActivationPower { get; set; } = 0.2;
+    /// <summary>
+    /// In seconds.
+    /// </summary>
+    [ObservableProperty] public partial double NormalActivationDuration { get; set; } = 6;
+    /// <summary>
+    /// In seconds.
+    /// </summary>
+    [ObservableProperty] public partial double TriggeredReleaseDuration { get; set; } = 12;
+    /// <summary>
+    /// Immediate trigger progress jump from crossing the <see cref="ActivationThreshold"/>.
+    /// </summary>
+    /// <remarks>
+    /// Jump can only activate with an interval of <see cref="MinimumJumpSpacingMs"/>.
+    /// </remarks>
+    [ObservableProperty] public partial double NormalActivationJump { get; set; } = 0;
+    /// <summary>
+    /// Immediate triggered state progress gain from crossing the <see cref="ActivationThreshold"/>.
+    /// </summary>
+    [ObservableProperty] public partial double TriggeredActivationJump { get; set; } = 0;
+    [ObservableProperty] public partial TriggeredResistance[] Resistances { get; set; } = [];
+    [ObservableProperty] public partial TriggeredResistance? SelectedResistance { get; set; }
+    /// <summary>
+    /// Current activation/calming progress.
+    /// </summary>
+    /// <remarks>
+    /// [0.0 - 1.0+]
+    /// </remarks>
+    [ObservableProperty] public partial double Progress { get; set; }
+
+    readonly DispatcherTimer AudioCaptureTimer = new();
     MMDevice? ActiveAudioCaptureDevice;
-    long LastTick = Environment.TickCount64;
-    long LastBoostTick;
-    long TotalTicks;
+    long LastAudioCaptureTick;
+    long FrozenNormalTotalTicks;
+    long FrozenTriggeredTotalTicks;
+    long LastJumpTick;
 
     public RootViewModel()
     {
-        CaptureTimer.Tick += HandleCaptureTick;
-        CaptureTimer.Interval = TimeSpan.FromMicroseconds(100); // 10
-        CaptureTimer.IsEnabled = AudioCaptureEnabled;
+        Hotkeys = [
+            new(), new(), new(),
+            new(), new(), new(),
+            new(), new(), new(),
+        ];
+
+        SamplingRates = [
+            new(15),
+            new(30),
+            new(45),
+            new(60),
+            new(75),
+            new(90),
+            new(105),
+            new(120),
+            new(144),
+            new(180),
+            new(240),
+        ];
+        // TODO: Retrieve from config.
+        SelectedSamplingRate = SamplingRates[1];
+
+        Resistances = [
+            new("Lowest", 0.7),
+            new("Low", 1.1),
+            new("Normal", 1.8),
+            new("Higher", 2.5),
+            new("High", 3.2),
+            new("\"Mid\"", 5),
+        ];
+        // TODO: Retrieve from config.
+        SelectedResistance = Resistances[2];
+
+        LastAudioCaptureTick = Environment.TickCount64;
+        AudioCaptureTimer.Tick += SampleTick;
+        AudioCaptureTimer.Interval = IntervalFromSampleRate(SelectedSamplingRate);
+        AudioCaptureTimer.IsEnabled = AudioCaptureEnabled;
         Activate();
+
+        VTubeStudio.Instance.Events.Track<VTSHotkeyTriggeredEvent>(HandleHotkeyTriggered);
         // TODO: Sub to trigger events.
         //  Calculate triggered state based on event feedbacks (unless VTS is disabled?)
         //VTubeStudio.Instance.OnAuthenticated //...
     }
 
-    partial void OnTriggeredChanged(bool value)
+    /// <summary>
+    /// Updates all hotkeys and expressions for currently selected model.
+    /// </summary>
+    /// <remarks>
+    /// Primarily for debugging.
+    /// </remarks>
+    [RelayCommand]
+    public async Task UpdateParameters()
     {
-        // TODO: Send state to Live2D.
-        //var result =
+        $"Updating hotkeys and expressions...".Out();
+
+        // TODO: Implement.
+        await Task.CompletedTask;
+
+        $"Update complete!".Out();
     }
 
     [RelayCommand]
-    public static async Task ToggleModelColor()
+    public async Task TriggerVTSHotkey()
     {
+        // Debug hotkey trigger test: 
+        //await VTubeStudio.Instance.Request(new VTSHotkeyTriggerRequest()
+        //{
+        //    Data = new()
+        //    {
+        //        HotkeyID = "158eb62bdd5d438ca5175516154131dc",
+        //        ItemInstanceID = null,
+        //    },
+        //});
+
+        // TODO: Update hotkey states.
+        var hotkey = Hotkeys.FirstOrDefault(static h => h.State == HotkeyState.Active);
+        if (hotkey is null)
+        {
+            $"No active hotkey is found!".Out();
+            // TODO: Toast this warning.
+            return;
+        }
+
         await VTubeStudio.Instance.Request(new VTSHotkeyTriggerRequest()
         {
             Data = new()
             {
-                HotkeyID = "158eb62bdd5d438ca5175516154131dc",
+                HotkeyID = hotkey.HotkeyID,
                 ItemInstanceID = null,
-            },
+            }
         });
     }
+
+    private async void HandleHotkeyTriggered(VTSHotkeyTriggeredEvent e)
+    {
+        if (e.Data is null) return;
+        if (!e.Data.HotkeyTriggeredByAPI)
+        {
+            // Used manually triggered the transition.
+            FrozenNormalTotalTicks = 0;
+            FrozenTriggeredTotalTicks = 0;
+            IsFrozen = true;
+        }
+
+        IsTriggered = !IsTriggered;
+        var hotkey = Hotkeys.FirstOrDefault(static h => h.State == HotkeyState.Active);
+        if (hotkey is null) return;
+        var result = await VTubeStudio.Instance.Request<VTSExpressionStateResponse>(new VTSExpressionStateRequest()
+        {
+            Data = new()
+            {
+                Details = false,
+                ExpressionFile = hotkey.ExpressionFile,
+            }
+        });
+
+        if (result.ResolveSuccess(out var response) && response.Data is not null)
+        {
+            if (response.Data.Expressions is null)
+            {
+                $"Expressions collection is null! Cannot update current triggered state!".Out(ConsoleColor.Yellow);
+                return;
+            }
+            if (response.Data.Expressions.Length != 1)
+            {
+                $"Multiple expressions listed under one file! Triggered state might be inaccurate.".Out(ConsoleColor.Yellow);
+            }
+            IsTriggered = response.Data.Expressions.Any(static e => e.Active);
+        }
+        else
+        {
+            $"Expression state request failed! Current triggered state might be out of sync.".Out(ConsoleColor.Yellow);
+        }
+    }
+
+    private void SampleTick(object? sender, EventArgs e)
+    {
+        long tick = Environment.TickCount64;
+
+        // Handles unfreeze.
+        if (IsFrozen)
+        {
+            if (IsTriggered)
+            {
+                if (AllowUnfreezeWhileTriggered)
+                {
+                    long elapsed = tick - LastAudioCaptureTick;
+                    FrozenTriggeredTotalTicks += elapsed;
+                    if (FrozenTriggeredTotalTicks >= (long)TimeSpan.FromSeconds(TriggeredUnfreezeDelay).TotalMilliseconds)
+                        IsFrozen = false;
+                }
+            }
+            else
+            {
+                if (AllowUnfreezeWhileNormal)
+                {
+                    long elapsed = tick - LastAudioCaptureTick;
+                    FrozenNormalTotalTicks += elapsed;
+                    if (FrozenNormalTotalTicks >= (long)TimeSpan.FromSeconds(NormalUnfreezeDelay).TotalMilliseconds)
+                        IsFrozen = false;
+                }
+            }
+        }
+
+        // Input volume update.
+        if (!AudioCaptureEnabled || ActiveAudioCaptureDevice is null)
+        {
+            AudioVolume = 0;
+        }
+        else
+        {
+            var channels = ActiveAudioCaptureDevice.AudioMeterInformation.PeakValues;
+            if (channels.Count == 0)
+            {
+                AudioVolume = 0;
+            }
+            else
+            {
+                float max = channels[0];
+                for (int i = 1; i < channels.Count; i++)
+                {
+                    max = Math.Max(max, channels[i]);
+                }
+                AudioVolume = max;
+            }
+        }
+
+        bool active = AudioVolume >= ActivationThreshold;
+        if (!IsActivated && active)
+        {
+            // Handling jump.
+            long elapsed = tick - LastJumpTick;
+            if (elapsed > MinimumJumpSpacingMs)
+            {
+                LastJumpTick = tick;
+                Progress = Math.Clamp(Progress + (IsTriggered ? TriggeredActivationJump : NormalActivationJump), 0, 1);
+            }
+        }
+
+        if (IsActivated = active)
+        {
+            // Mitigates division by zero exceptions.
+            if (ActivationPower < double.Epsilon || ActivationThreshold >= 1 - double.Epsilon)
+            {
+                Progress = 1;
+            }
+            else
+            {
+                // Indicates how close AudioVolume is to the max possible volume [0.0:1.0], using ActivationThreshold as origin.
+                double relative = (AudioVolume - ActivationThreshold) / (1 - ActivationThreshold);
+                double speed = Math.Pow(relative, (1 - ActivationPower) / ActivationPower);
+                double multiplier = relative * speed;
+                if (IsTriggered)
+                {
+                    var resistance = SelectedResistance ?? TriggeredResistance.Default;
+                    double direction = 1 + multiplier - resistance.Resistance;
+                    Progress = Math.Clamp(Progress + (direction / TriggeredReleaseDuration), 0, 1);
+                }
+                else
+                {
+                    Progress = Math.Clamp(Progress + (multiplier / NormalActivationDuration), 0, 1);
+                }
+            }
+        }
+
+        if (IsTriggered)
+        {
+            if (Progress <= double.Epsilon)
+            {
+                IsTriggered = false;
+                // Send state to the remote.
+                // Do not send if IsFrozen.
+            }
+        }
+        else
+        {
+            if (Progress >= 1 - double.Epsilon)
+            {
+                IsTriggered = true;
+                // Send state to remote.
+                // Do not send if IsFrozen.
+            }
+        }
+
+        LastAudioCaptureTick = tick;
+    }
+
+    partial void OnIsTriggeredChanged(bool value)
+    {
+        $"IsTriggered changed to: {value}".Out(ConsoleColor.Cyan);
+    }
+
+    partial void OnSelectedSamplingRateChanged(SamplingRate? value)
+    {
+        AudioCaptureTimer.Interval = IntervalFromSampleRate(value);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static TimeSpan IntervalFromSampleRate(SamplingRate? rate)
+    {
+        rate ??= SamplingRate.Default;
+        return TimeSpan.FromSeconds(1.0 / rate.SamplesPerSecond);
+    }
+
     [RelayCommand] public void ToggleCapture() => AudioCaptureEnabled = !AudioCaptureEnabled;
     partial void OnAudioCaptureEnabledChanged(bool value)
     {
-        CaptureTimer.IsEnabled = value;
         if (!value)
         {
-            LastBoostTick = 0;
-            LeftAudioVolume = 0;
-            RightAudioVolume = 0;
-            IsVolumeActivated = false;
-            TriggerProgress = 0;
-            Triggered = false;
+            AudioVolume = 0;
+            Progress = 0;
         }
         else
         {
-            LastTick = Environment.TickCount64;
+            FrozenNormalTotalTicks = 0;
+            FrozenTriggeredTotalTicks = 0;
+            LastAudioCaptureTick = Environment.TickCount64;
+            LastJumpTick = 0;
         }
-    }
-    private void HandleCaptureTick(object? sender, EventArgs e)
-    {
-        Console.WriteLine(nameof(HandleCaptureTick));
-        CaptureTickImmediate();
-    }
-
-    const long MaxTickCount = 128_000_000_000; // Large enough to never hit, but small enough to never overflow when exceeded.
-    [RelayCommand] public void CaptureTick() => Application.Current.Dispatcher.Invoke(CaptureTickImmediate);
-    private void CaptureTickImmediate()
-    {
-        if (ActiveAudioCaptureDevice is null)
-        {
-            LeftAudioVolume = 0;
-            RightAudioVolume = 0;
-            Console.WriteLine($"[{DateTime.Now}] Missing input device.");
-            return;
-        }
-        if (ActiveAudioCaptureDevice.State != DeviceState.Active)
-        {
-            LeftAudioVolume = 0;
-            RightAudioVolume = 0;
-            Console.WriteLine($"[{DateTime.Now}] Selected input device is not active anymore. Resetting...");
-            ActiveAudioCaptureDevice = null;
-            return;
-        }
-
-        var channels = ActiveAudioCaptureDevice.AudioMeterInformation.PeakValues;
-        switch (channels.Count)
-        {
-            case 0:
-                AudioVolume = 0f;
-                LeftAudioVolume = AudioVolume;
-                RightAudioVolume = AudioVolume;
-                Console.WriteLine($"[{DateTime.Now}][0]: {LeftAudioVolume} (s: {TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds})");
-                break;
-            case 1:
-                AudioVolume = channels[0];
-                LeftAudioVolume = AudioVolume;
-                RightAudioVolume = AudioVolume;
-                Console.WriteLine($"[{DateTime.Now}][1]: {LeftAudioVolume} (s: {TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds})");
-                break;
-            case 2:
-                LeftAudioVolume = channels[0];
-                RightAudioVolume = channels[1];
-                AudioVolume = Math.Max(LeftAudioVolume, RightAudioVolume);
-                Console.WriteLine($"[{DateTime.Now}][2]: {LeftAudioVolume} + {RightAudioVolume} (s: {TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds})");
-                break;
-            default:
-                if (channels.Count < 0) goto case 0;
-                else goto case 2;
-        }
-
-        IsVolumeActivated = AudioVolume > ActivationThreshold;
-
-        long tick = Environment.TickCount64;
-        long delta = tick - LastTick;
-        if (!Triggered)
-        {
-            if (IsVolumeActivated)
-            {
-                TotalTicks = Math.Clamp(TotalTicks + delta, 0, MaxTickCount);
-            }
-            else
-            {
-                // Reduces timer to extend the transformation once triggered.
-                TotalTicks = Math.Clamp(TotalTicks - delta, 0, MaxTickCount);
-            }
-
-            double total = TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds;
-            if (total >= ChargeTime)
-            {
-                Triggered = true;
-                TriggerProgress = 1;
-                TotalTicks = 0;
-            }
-            else
-            {
-                TriggerProgress = total / ChargeTime;
-            }
-        }
-        else
-        {
-            if (IsVolumeActivated)
-            {
-                // Reduces timer to extend the transformation once triggered.
-                TotalTicks = Math.Clamp(TotalTicks - delta, 0, MaxTickCount);
-            }
-            else
-            {
-                TotalTicks = Math.Clamp(TotalTicks + delta, 0, MaxTickCount);
-            }
-
-            double total = TimeSpan.FromMilliseconds(TotalTicks).TotalSeconds;
-            if (total >= DischargeTime)
-            {
-                Triggered = false;
-                TriggerProgress = 1;
-                TotalTicks = 0;
-            }
-            else
-            {
-                TriggerProgress = total / DischargeTime;
-            }
-        }
-        LastTick = Environment.TickCount64;
+        AudioCaptureTimer.IsEnabled = value;
     }
 
-    partial void OnIsVolumeActivatedChanged(bool value)
-    {
-        long tick = Environment.TickCount64;
-        if (!Triggered && value && TimeSpan.FromMilliseconds(tick - LastBoostTick).TotalMilliseconds >= MinBoostSpacingMs)
-        {
-            LastBoostTick = tick;
-            TotalTicks = Math.Clamp(TotalTicks + (long)TimeSpan.FromSeconds(TriggerChargeBoost).TotalMilliseconds, 0, MaxTickCount);
-        }
-    }
-
-    bool IsActivated;
     [RelayCommand] public void Activate() => Application.Current.Dispatcher.Invoke(ActivateImmediate);
     private void ActivateImmediate()
     {
@@ -265,10 +390,10 @@ public sealed partial class RootViewModel : ObservableObject
         {
             IsActivated = true;
             RefreshInputDevicesImmediate();
-            _ = RefreshExpressions();
-            VTubeStudio.Instance.OnAuthenticated += HandleAuthenticated;
-            if (VTubeStudio.Instance.Authenticated)
-                HandleAuthenticated();
+            //_ = RefreshExpressions();
+            //VTubeStudio.Instance.OnAuthenticated += HandleAuthenticated;
+            //if (VTubeStudio.Instance.Authenticated)
+            //    HandleAuthenticated();
         }
         catch { IsActivated = false; throw; }
     }
@@ -278,34 +403,7 @@ public sealed partial class RootViewModel : ObservableObject
     {
         if (!IsActivated) return;
         IsActivated = false;
-        VTubeStudio.Instance.OnAuthenticated -= HandleAuthenticated;
-    }
-
-    private void HandleAuthenticated() => RefreshVTS();
-
-    [RelayCommand] public void RefreshVTS() => Application.Current.Dispatcher.Invoke(RefreshVTSImmediate);
-    private async void RefreshVTSImmediate()
-    {
-        var result = await VTubeStudio.Instance.Request<VTSAvailableModelsResponse>(VTSAvailableModelsRequest.Instance);
-        if (result.ResolveSuccess(out var response) && response.Data?.AvailableModels?.Length > 0)
-        {
-            var array = response.Data.AvailableModels;
-            var models = new VTSModelViewModel[array.Length];
-            for (int i = 0; i < array.Length; i++)
-            {
-                var model = array[i];
-                models[i] = new VTSModelViewModel()
-                {
-                    ModelID = model.ModelID ?? VTSModelViewModel.DefaultModelID,
-                    Name = model.VTSModelName ?? VTSModelViewModel.DefaultName,
-                    Hotkeys = null,
-                };
-            }
-        }
-        else
-        {
-            $"Model request failed. Nothing will be updated.".Out(ConsoleColor.Yellow);
-        }
+        //VTubeStudio.Instance.OnAuthenticated -= HandleAuthenticated;
     }
 
     [RelayCommand] public void RefreshInputDevices() => Application.Current.Dispatcher.Invoke(RefreshInputDevicesImmediate);
@@ -338,117 +436,117 @@ public sealed partial class RootViewModel : ObservableObject
         $"Input devices refreshed! Found: {AudioCaptureDevices.Length}".Out();
     }
 
-    Task? RefreshTask;
+    //Task? RefreshTask;
 
-    [RelayCommand]
-    public Task RefreshExpressions()
-    {
-        if (RefreshTask is null || RefreshTask.IsCompleted)
-        {
-            return RefreshTask = RefreshExpressionsInternal();
-        }
-        else return RefreshTask;
-    }
-    async Task RefreshExpressionsInternal()
-    {
-        $"Refreshing model expression list..".Out();
-        if (VTubeStudio.Instance.Status != VTSStatus.Authenticated)
-        {
-            $"VTS not authenticated (Status: {VTubeStudio.Instance.Status}). Resetting expression list.".Out();
-            Application.Current.Dispatcher.Invoke(ResetExpressions);
-            return;
-        }
-        var result = await VTubeStudio.Instance.Request<VTSExpressionStateResponse>(new VTSExpressionStateRequest
-        {
-            Data = new()
-            {
-                Details = false,
-                ExpressionFile = string.Empty,
-            }
-        });
-        if (result.ResolveSuccess(out var response) && response.Data is not null)
-        {
-            if (!response.Data.ModelLoaded || response.Data.Expressions is null)
-            {
-                Application.Current.Dispatcher.Invoke(ResetExpressions);
-            }
-            else
-            {
-                var list = response.Data.Expressions.Select(e => new ExpressionViewModel()
-                {
-                    ModelID = response.Data.ModelID ?? string.Empty,
-                    ModelName = response.Data.ModelName ?? string.Empty,
-                    Name = e.Name ?? string.Empty,
-                    DisplayName = e.Name ?? string.Empty,
-                    Exists = true,
-                }).ToList();
-                Application.Current.Dispatcher.Invoke(() => SetExpressions(list));
-            }
-            $"Expression list refreshed successfully!".Out();
-        }
-        else
-        {
-            $"Cannot refresh model parameters! Received:\n{result}".Out(ConsoleColor.Yellow);
-        }
+    //[RelayCommand]
+    //public Task RefreshExpressions()
+    //{
+    //    if (RefreshTask is null || RefreshTask.IsCompleted)
+    //    {
+    //        return RefreshTask = RefreshExpressionsInternal();
+    //    }
+    //    else return RefreshTask;
+    //}
+    //async Task RefreshExpressionsInternal()
+    //{
+    //    $"Refreshing model expression list..".Out();
+    //    if (VTubeStudio.Instance.Status != VTSStatus.Authenticated)
+    //    {
+    //        $"VTS not authenticated (Status: {VTubeStudio.Instance.Status}). Resetting expression list.".Out();
+    //        Application.Current.Dispatcher.Invoke(ResetExpressions);
+    //        return;
+    //    }
+    //    var result = await VTubeStudio.Instance.Request<VTSExpressionStateResponse>(new VTSExpressionStateRequest
+    //    {
+    //        Data = new()
+    //        {
+    //            Details = false,
+    //            ExpressionFile = string.Empty,
+    //        }
+    //    });
+    //    if (result.ResolveSuccess(out var response) && response.Data is not null)
+    //    {
+    //        if (!response.Data.ModelLoaded || response.Data.Expressions is null)
+    //        {
+    //            Application.Current.Dispatcher.Invoke(ResetExpressions);
+    //        }
+    //        else
+    //        {
+    //            var list = response.Data.Expressions.Select(e => new ExpressionViewModel()
+    //            {
+    //                ModelID = response.Data.ModelID ?? string.Empty,
+    //                ModelName = response.Data.ModelName ?? string.Empty,
+    //                Name = e.Name ?? string.Empty,
+    //                DisplayName = e.Name ?? string.Empty,
+    //                Exists = true,
+    //            }).ToList();
+    //            Application.Current.Dispatcher.Invoke(() => SetExpressions(list));
+    //        }
+    //        $"Expression list refreshed successfully!".Out();
+    //    }
+    //    else
+    //    {
+    //        $"Cannot refresh model parameters! Received:\n{result}".Out(ConsoleColor.Yellow);
+    //    }
 
-        void ResetExpressions() => SetExpressions([]);
-        void SetExpressions(List<ExpressionViewModel> expressions)
-        {
-            if (expressions.Count == 0)
-            {
-                if (SelectedModelExpression is not null)
-                {
-                    SelectedModelExpression.Exists = false;
-                    ModelExpressions = [SelectedModelExpression];
-                }
-                else ModelExpressions = [];
-                return;
-            }
+    //    void ResetExpressions() => SetExpressions([]);
+    //    void SetExpressions(List<ExpressionViewModel> expressions)
+    //    {
+    //        if (expressions.Count == 0)
+    //        {
+    //            if (SelectedModelExpression is not null)
+    //            {
+    //                SelectedModelExpression.Exists = false;
+    //                ModelExpressions = [SelectedModelExpression];
+    //            }
+    //            else ModelExpressions = [];
+    //            return;
+    //        }
 
-            if (SelectedModelExpression is not null)
-            {
-                var selected = SelectedModelExpression;
-                if (expressions.Contains(selected))
-                {
-                    selected.Exists = true;
-                }
-                else
-                {
-                    var similar = expressions.Find(ex => ex.Name == selected.Name);
-                    if (similar is not null)
-                    {
-                        selected = similar;
-                        selected.Exists = true;
-                    }
-                    else
-                    {
-                        expressions.Add(selected);
-                        selected.Exists = false;
-                    }
-                }
+    //        if (SelectedModelExpression is not null)
+    //        {
+    //            var selected = SelectedModelExpression;
+    //            if (expressions.Contains(selected))
+    //            {
+    //                selected.Exists = true;
+    //            }
+    //            else
+    //            {
+    //                var similar = expressions.Find(ex => ex.Name == selected.Name);
+    //                if (similar is not null)
+    //                {
+    //                    selected = similar;
+    //                    selected.Exists = true;
+    //                }
+    //                else
+    //                {
+    //                    expressions.Add(selected);
+    //                    selected.Exists = false;
+    //                }
+    //            }
 
-                SelectedModelExpression = null;
-                ModelExpressions = [.. expressions];
-                SelectedModelExpression = selected;
-            }
-            else
-            {
-                SelectedModelExpression = null;
-                ModelExpressions = [.. expressions];
-            }
-        }
-    }
+    //            SelectedModelExpression = null;
+    //            ModelExpressions = [.. expressions];
+    //            SelectedModelExpression = selected;
+    //        }
+    //        else
+    //        {
+    //            SelectedModelExpression = null;
+    //            ModelExpressions = [.. expressions];
+    //        }
+    //    }
+    //}
 
-    partial void OnSelectedModelExpressionChanged(ExpressionViewModel? value)
-    {
-        SelectedModelExpressionExists = value is not null && value.Exists;
+    //partial void OnSelectedModelExpressionChanged(ExpressionViewModel? value)
+    //{
+    //    SelectedModelExpressionExists = value is not null && value.Exists;
 
-        // Don't clean-up unless selected a valid expression.
-        // Makes sure you can select non-existing expressions if you have any from a previous model.
-        if (!SelectedModelExpressionExists) return;
-        if (Array.Exists(ModelExpressions, static e => !e.Exists))
-        {
-            ModelExpressions = ModelExpressions.Where(static e => e.Exists).ToArray();
-        }
-    }
+    //    // Don't clean-up unless selected a valid expression.
+    //    // Makes sure you can select non-existing expressions if you have any from a previous model.
+    //    if (!SelectedModelExpressionExists) return;
+    //    if (Array.Exists(ModelExpressions, static e => !e.Exists))
+    //    {
+    //        ModelExpressions = ModelExpressions.Where(static e => e.Exists).ToArray();
+    //    }
+    //}
 }

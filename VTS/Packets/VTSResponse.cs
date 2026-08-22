@@ -51,7 +51,7 @@ public class VTSResponse : VTSResponseTemplate
 public class VTSResponseData : VTSPacketData
 {
     /// <summary>
-    /// Checks if no errors have occured during the request.
+    /// Checks if no errors have occurred during the request.
     /// </summary>
     public bool Succeeded => ErrorID == 0;
 

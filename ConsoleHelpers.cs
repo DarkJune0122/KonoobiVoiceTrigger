@@ -1,41 +1,75 @@
-﻿namespace VoiceTrigger;
+﻿using System.Text;
+using VoiceTrigger.Services;
+
+namespace VoiceTrigger;
 
 public static class ConsoleHelpers
 {
+    static readonly StringBuilder builder = new();
     public static string ToDisplay(this Exception ex) => $"{ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}";
     public static void Out(this Exception ex, string? prefix = null, ConsoleColor color = ConsoleColor.Red)
     {
-        ConsoleColor last = Console.ForegroundColor;
-        Console.ForegroundColor = color;
-        if (prefix is not null)
+        lock (builder)
         {
-            Console.Write(prefix);
-            if (!prefix.EndsWith(' '))
-                Console.Write(' ');
+            ConsoleColor last = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+
+            builder.Clear();
+            if (prefix is not null)
+            {
+                builder.Append(prefix);
+                if (!prefix.EndsWith(' '))
+                    builder.Append(' ');
+            }
+            builder.Append(ex.ToDisplay());
+            string final = builder.ToString();
+            builder.Clear();
+
+            Console.WriteLine(final);
+            Console.ForegroundColor = last;
+            LogService.Log(final);
         }
-        Console.WriteLine(ex.ToDisplay());
-        Console.ForegroundColor = last;
     }
 
     public static void Out(this object? obj, ConsoleColor color = ConsoleColor.White)
     {
-        ConsoleColor last = Console.ForegroundColor;
-        Console.ForegroundColor = color;
-        Console.WriteLine(obj);
-        Console.ForegroundColor = last;
+        lock (builder)
+        {
+            ConsoleColor last = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+
+            builder.Clear();
+            builder.Append((obj ?? "null").ToString());
+            string final = builder.ToString();
+            builder.Clear();
+
+            Console.WriteLine(final);
+            Console.ForegroundColor = last;
+            LogService.Log(final);
+        }
     }
 
     public static void Out(this object? obj, string? prefix, ConsoleColor color = ConsoleColor.White)
     {
-        ConsoleColor last = Console.ForegroundColor;
-        Console.ForegroundColor = color;
-        if (prefix is not null)
+        lock (builder)
         {
-            Console.Write(prefix);
-            if (!prefix.EndsWith(' '))
-                Console.Write(' ');
+            ConsoleColor last = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+
+            builder.Clear();
+            if (prefix is not null)
+            {
+                builder.Append(prefix);
+                if (!prefix.EndsWith(' '))
+                    builder.Append(' ');
+            }
+            builder.Append((obj ?? "null").ToString());
+            string final = builder.ToString();
+            builder.Clear();
+
+            Console.WriteLine(final);
+            Console.ForegroundColor = last;
+            LogService.Log(final);
         }
-        Console.WriteLine(obj);
-        Console.ForegroundColor = last;
     }
 }

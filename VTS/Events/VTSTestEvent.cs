@@ -4,13 +4,17 @@ using VoiceTrigger.VTS.Packets;
 
 namespace VoiceTrigger.VTS.Events;
 
-public sealed class VTSECTest : VTSEventConfig
+public sealed class VTSTestEvent : VTSResponse<VTSTestEventData>;
+public sealed class VTSTestEventData : VTSResponseData
 {
-    [JsonPropertyName("testMessageForEvent")] public required string? TestMessageForEvent { get; set; }
+    [JsonPropertyName("yourTestMessage")] public required string? YourTestMessage { get; init; }
+    [JsonPropertyName("counter")] public required int Counter { get; init; }
 
     public override StringBuilder ToString(StringBuilder b, string prefix = "")
     {
-        Append(b, prefix, TestMessageForEvent);
+        base.ToString(b, prefix);
+        AppendLine(b, prefix, YourTestMessage);
+        Append(b, prefix, Counter);
         return b;
     }
 }

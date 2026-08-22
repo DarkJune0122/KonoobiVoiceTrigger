@@ -6,6 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
+    xmlns:c="clr-namespace:VoiceTrigger.Controls"
     xmlns:local="clr-namespace:VoiceTrigger"
     mc:Ignorable="d"
     DataContext="{StaticResource RootViewModel}"
@@ -16,7 +17,7 @@
 
     ExtendsContentIntoTitleBar="True"
     ResizeMode="NoResize"
-    Title="MainWindow" MinHeight="90" Height="240" MinWidth="720" Width="560">
+    Title="MainWindow" MinHeight="90" Height="Auto" MinWidth="900" Width="560">
     <ui:FluentWindow.Resources>
         <!--<Style x:Key="TitleButtonStyle" TargetType="ui:Button">
             <Setter Property="BorderThickness" Value="0"/>
@@ -25,7 +26,6 @@
         </Style>-->
     </ui:FluentWindow.Resources>
     <StackPanel Orientation="Vertical">
-
         <!--Title Bar-->
         <ui:TitleBar Height="35" HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
                      ShowMaximize="False" ShowMinimize="False" ShowClose="False" ShowHelp="False">
@@ -115,6 +115,157 @@
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
+        </Grid>
+        
+        <!--Interface-->
+        <Grid Margin="4,0,4,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Vertical">
+                <!--Top slider-->
+                <Grid Margin="0,0,0,2">
+                    <Slider Orientation="Horizontal" Background="Transparent"
+                            BorderThickness="10"/>
+                </Grid>
+                <Grid Margin="0,0,0,2">
+                    <ProgressBar Orientation="Horizontal" Minimum="0.0" Maximum="1.0" Value="0.5" Foreground="Lime"
+                                 Height="8" BorderThickness="10" />
+                </Grid>
+                <Grid Margin="0,0,0,2">
+                    <Slider Orientation="Horizontal" Background="Transparent"
+                            BorderThickness="10"/>
+                </Grid>
+                <Grid Margin="0,0,0,2">
+                    <ProgressBar Orientation="Horizontal" Minimum="0.0" Maximum="1.0" Value="0.5" Foreground="Yellow"
+                                 Height="8" BorderThickness="10" />
+                </Grid>
+                <Grid Margin="0,0,0,2">
+                    <Slider Orientation="Horizontal" Background="Transparent"
+                            BorderThickness="10"/>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:TextBlock Text="Activation Power: " FontSize="14" VerticalAlignment="Center"
+                                      Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
+                        <ui:TextBox Text="1.0" TextAlignment="Right" Width="96" Height="36">
+                            <!--<ui:TextBox.Text>
+                                <Binding>
+                                    
+                                </Binding>
+                            </ui:TextBox.Text>-->
+                        </ui:TextBox>
+                    </StackPanel>
+                </StackPanel>
+                <Grid Height="Auto">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="2*"/>
+                    </Grid.ColumnDefinitions>
+                    <Rectangle Grid.ColumnSpan="3" Fill="LightGray" Height="0.5" VerticalAlignment="Top"/>
+                    <StackPanel Grid.Column="0" Orientation="Vertical">
+                        <ui:TextBlock Margin="0,4,0,6" Text="Konoobi state" FontSize="14" TextAlignment="Center"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
+                                      Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                        <StackPanel Margin="0,0,0,2" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <StackPanel Margin="0,0,16,0" Orientation="Horizontal">
+                                <ui:TextBlock Text="Time until IBOK: " FontSize="14" VerticalAlignment="Center"
+                                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
+                                <ui:TextBox Margin="10,0,0,0" Text="10" TextAlignment="Right" Width="96" BorderThickness="0" Height="36" />
+                                <ui:TextBlock Text="s" FontSize="14" VerticalAlignment="Center"
+                                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                            </StackPanel>
+                            <!--<StackPanel Orientation="Horizontal">
+                                <ui:TextBlock Text="Jump power: " FontSize="14" VerticalAlignment="Center"
+                                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
+                                <ui:TextBox Text="1" TextAlignment="Right" Width="48" BorderThickness="0" Height="36" />
+                            </StackPanel>-->
+                        </StackPanel>
+                    </StackPanel>
+                    <Rectangle Margin="4,4,4,4" Width="1" Grid.Column="1" Fill="DarkGray"/>
+                    <StackPanel Grid.Column="2" Orientation="Vertical">
+                        <ui:TextBlock Margin="0,4,0,6" Text="IBOK state" FontSize="14" TextAlignment="Center"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                      Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
+                        <StackPanel Margin="0,0,0,2" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <StackPanel Margin="0,0,32,0" Orientation="Horizontal">
+                                <ui:TextBlock Text="Time until Kobi: " FontSize="14" VerticalAlignment="Center"
+                                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
+                                <ui:TextBox Margin="10,0,0,0" Text="16" TextAlignment="Right" Width="96" BorderThickness="0" Height="36" />
+                                <ui:TextBlock Text="s" FontSize="14" VerticalAlignment="Center"
+                                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,0,0" Orientation="Horizontal">
+                                <ui:TextBlock Text="IBOK resistance: " FontSize="14" VerticalAlignment="Center"
+                                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
+                                <ComboBox ItemsSource="{Binding Resistances}" Width="120"
+                                          SelectedItem="{Binding SelectedResistance, Mode=TwoWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <ui:TextBlock Text="{Binding DisplayText}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                            <!--<StackPanel Orientation="Horizontal">
+                                <ui:TextBlock Text="Activation Power: " FontSize="14" VerticalAlignment="Center"
+                                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
+                                <ui:TextBox Text="1" TextAlignment="Right" Width="48" BorderThickness="0" Height="36" />
+                            </StackPanel>-->
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+            <c:AvatarControl NormalImage="/Resources/kobi-normal.png"
+                             ActiveImage="/Resources/kobi-active.png"
+                             TriggeredNormalImage="/Resources/ibok-normal.png"
+                             TriggeredActiveImage="/Resources/ibok-active.png"
+                             VerticalAlignment="Top" Grid.Column="1" Width="128" Height="128" Margin="8"/>
+        </Grid>
+        
+        <!--Hotkeys-->
+        <Grid Margin="4,0,4,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <ui:TextBlock Text="Hotkeys" FontSize="14" Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                <!--Delete all maybe?-->
+                <ui:Button Grid.Column="2">
+                    <ui:Button.Icon>
+                        <ui:SymbolIcon Symbol="Add24"/>
+                    </ui:Button.Icon>
+                </ui:Button>
+            </Grid>
+            <Rectangle Grid.RowSpan="2" Fill="LightGray" Height="1" VerticalAlignment="Top"/>
+            <ui:ListView Grid.Row="1" ItemsSource="{Binding Hotkeys}" MinHeight="36"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                <ui:ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ui:ListView.ItemsPanel>
+                <ui:ListView.ItemTemplate>
+                    <DataTemplate>
+                        <ComboBox Width="192" Height="32" Text="{Binding HotkeyName}"/>
+                    </DataTemplate>
+                </ui:ListView.ItemTemplate>
+            </ui:ListView>
+        </Grid>
+        
+        <!--Silly BG, Help-box, Toast-->
+        <Grid Margin="4,8,4,4" Height="52">
+            <Rectangle Fill="LightGray" Height="1" VerticalAlignment="Top"/>
+            <ui:TextBlock Margin="0,4,0,0" Text="Tips and help will appear here" FontSize="14" Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
         </Grid>
 
         <!--Tray icon-->

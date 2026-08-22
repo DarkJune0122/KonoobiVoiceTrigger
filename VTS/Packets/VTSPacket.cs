@@ -10,8 +10,8 @@ public abstract class VTSPacket : VTSPacketData // Inherits associated functions
 
     [JsonPropertyName("apiName")] public virtual string? APIName { get; set; }
     [JsonPropertyName("apiVersion")] public virtual string? APIVersion { get; set; }
-    [JsonPropertyName("messageType")] public virtual string? MessageType { get; set; }
-    [JsonPropertyName("requestID")] public virtual string? RequestID { get; set; }
+    [JsonPropertyName(VTSPackets.MessageTypeJsonPropertyName)] public virtual string? MessageType { get; set; }
+    [JsonPropertyName(VTSPackets.RequestIDJsonPropertyName)] public virtual string? RequestID { get; set; }
 
     public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     {

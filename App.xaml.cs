@@ -2,6 +2,7 @@
 using System.IO;
 using System.IO.Pipes;
 using System.Windows.Threading;
+using VoiceTrigger.Services;
 using VoiceTrigger.VTS;
 
 namespace VoiceTrigger;
@@ -31,6 +32,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        LogService.Initialize();
 
         SingletonMutex = new(true, MutexName, out bool isNew);
         if (isNew)
@@ -45,6 +47,7 @@ public partial class App : Application
             return;
         }
 
+        ConfigurationService.Initialize();
         VTSRestartTimer.Tick += MakeRestartAttempt;
         VTSRestartTimer.Interval = TimeSpan.FromSeconds(1);
         VTSRestartTimer.Start();
@@ -62,6 +65,8 @@ public partial class App : Application
         base.OnExit(e);
         SingletonSource?.Cancel();
         VTubeStudio.Instance.Stop();
+        ConfigurationService.Terminate();
+        LogService.Terminate();
         SingletonMutex?.Dispose();
     }
 
