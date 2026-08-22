@@ -10,12 +10,15 @@ public abstract class ConfigurationTemplate
     {
         try
         {
-            File.WriteAllText(FilePath, Newtonsoft.Json.JsonConvert.SerializeObject(this, Newtonsoft.Json.Formatting.Indented));
+            $"Saving {GetType().Name}...".Out();
+            string result = Newtonsoft.Json.JsonConvert.SerializeObject(this, Newtonsoft.Json.Formatting.Indented);
+            File.WriteAllText(FilePath, result);
+            $"Saved! {GetType().Name}!".Out();
             return true;
         }
         catch (Exception ex)
         {
-            ex.Out($"Failed to serialize {GetType().Name} to {FilePath}!\n");
+            ex.Out($"Failed to save {GetType().Name}!\n");
             return false;
         }
     }
@@ -23,13 +26,15 @@ public abstract class ConfigurationTemplate
     {
         try
         {
+            $"Loading {GetType().Name}...".Out();
             if (File.Exists(FilePath))
                 Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(FilePath), this);
+            $"Loaded! {GetType().Name}!".Out();
             return true;
         }
         catch (Exception ex)
         {
-            ex.Out($"Failed to deserialize {GetType().Name} from {FilePath}!\n");
+            ex.Out($"Failed to load {GetType().Name}!\n");
             return false;
         }
     }

@@ -1,13 +1,21 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
+using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
+using VoiceTrigger.Services;
 using VoiceTrigger.VTS;
 using VoiceTrigger.VTS.Events;
 using VoiceTrigger.VTS.Requests;
 
 namespace VoiceTrigger;
+
+public sealed partial class Model : ObservableObject
+{
+    [ObservableProperty] public partial string? ModelID { get; set; }
+    [ObservableProperty] public partial string? ModelName { get; set; }
+}
 
 // TODO: Serialize states. Move Advanced settings in a separate .cfg file.
 // TODO: Go through the logic and find out - maybe we can make the logic funnier to use? More engaging, etc.
@@ -24,9 +32,16 @@ public sealed partial class RootViewModel : ObservableObject
     [ObservableProperty] public partial SamplingRate? SelectedSamplingRate { get; set; }
 
     // Hotkeys & Avatar state.
-    [ObservableProperty] public partial ExpressionHotkey[] Hotkeys { get; set; } = [];
-    [ObservableProperty] public partial bool IsActivated { get; set; }
-    [ObservableProperty] public partial bool IsTriggered { get; set; }
+    [ObservableProperty] public partial ModelHotkey[] Hotkeys { get; set; } = [];
+    [ObservableProperty] public partial ModelHotkey? SelectedHotkey { get; set; }
+    [ObservableProperty] public partial ModelExpression[] Expressions { get; set; } = [];
+    [ObservableProperty] public partial ModelExpression? SelectedExpression { get; set; }
+    [ObservableProperty] public partial Model CurrentModel { get; set; }
+    [ObservableProperty] public partial bool ModelLoaded { get; set; }
+    [ObservableProperty] public partial bool IsActivated { get; set; } = false;
+    [ObservableProperty] public partial bool IsTriggered { get; set; } = false;
+    [ObservableProperty] public partial AvatarFlags AvatarFlags { get; set; }
+    [ObservableProperty] public partial Brush ProgressBrush { get; set; } = Brushes.Yellow;
 
     // Trigger controls.
     /// <summary>
@@ -50,7 +65,7 @@ public sealed partial class RootViewModel : ObservableObject
     /// <summary>
     /// Audio-meter activation threshold [0.0 - 1.0]
     /// </summary>
-    [ObservableProperty] public partial double ActivationThreshold { get; set; } = 0.12;
+    [ObservableProperty] public partial double ActivationThreshold { get; set; } = 0.15;
     /// <summary>
     /// [0.0 - 1.0] Describes how fast progress bar will move, depending on how loud you are.
     /// </summary>
@@ -60,7 +75,7 @@ public sealed partial class RootViewModel : ObservableObject
     /// Then, power:
     /// With RP of 10% (0.1) - it will move 
     /// </remarks>
-    [ObservableProperty] public partial double ActivationPower { get; set; } = 0.2;
+    [ObservableProperty] public partial double ActivationPower { get; set; } = 2;
     /// <summary>
     /// In seconds.
     /// </summary>
@@ -68,7 +83,7 @@ public sealed partial class RootViewModel : ObservableObject
     /// <summary>
     /// In seconds.
     /// </summary>
-    [ObservableProperty] public partial double TriggeredReleaseDuration { get; set; } = 12;
+    [ObservableProperty] public partial double TriggeredReleaseDuration { get; set; } = 60;
     /// <summary>
     /// Immediate trigger progress jump from crossing the <see cref="ActivationThreshold"/>.
     /// </summary>
@@ -99,12 +114,37 @@ public sealed partial class RootViewModel : ObservableObject
 
     public RootViewModel()
     {
-        Hotkeys = [
-            new(), new(), new(),
-            new(), new(), new(),
-            new(), new(), new(),
-        ];
+        ActivationPower = ConfigurationService.Roaming.ActivationPower;
+        NormalActivationJump = ConfigurationService.Roaming.NormalActivationJump;
+        TriggeredReleaseDuration = ConfigurationService.Roaming.TriggeredReleaseDuration;
+        NormalActivationDuration = ConfigurationService.Roaming.NormalActivationDuration;
+        TriggeredActivationJump = ConfigurationService.Roaming.TriggeredActivationJump;
 
+        var hotkey = ConfigurationService.Roaming.SelectedHotkey;
+        if (hotkey is not null)
+        {
+            Hotkeys = [hotkey];
+            SelectedHotkey = hotkey;
+        }
+        else
+        {
+            Hotkeys = [];
+            SelectedHotkey = null;
+        }
+
+        var expression = ConfigurationService.Roaming.SelectedExpression;
+        if (expression is not null)
+        {
+            Expressions = [expression];
+            SelectedExpression = expression;
+        }
+        else
+        {
+            Expressions = [];
+            SelectedExpression = null;
+        }
+
+        int index;
         SamplingRates = [
             new(15),
             new(30),
@@ -118,30 +158,81 @@ public sealed partial class RootViewModel : ObservableObject
             new(180),
             new(240),
         ];
-        // TODO: Retrieve from config.
-        SelectedSamplingRate = SamplingRates[1];
+        index = ConfigurationService.Roaming.SelectedSamplingRateIndex;
+        if (index < 0 || index > SamplingRates.Length)
+            SelectedSamplingRate = SamplingRates[2];
+        else
+            SelectedSamplingRate = SamplingRates[index];
 
         Resistances = [
-            new("Lowest", 0.7),
-            new("Low", 1.1),
-            new("Normal", 1.8),
-            new("Higher", 2.5),
-            new("High", 3.2),
-            new("\"Mid\"", 5),
+            new("Lowest", 1),
+            new("Low", 1.4),
+            new("Normal", 1.75),
+            new("High", 2.25),
+            new("Higher", 3),
+            new("\"Mid\"", 4.2),
         ];
-        // TODO: Retrieve from config.
-        SelectedResistance = Resistances[2];
+        index = ConfigurationService.Roaming.SelectedResistanceIndex;
+        if (index < 0 || index > Resistances.Length)
+            SelectedResistance = Resistances[2];
+        else
+            SelectedResistance = Resistances[index];
 
         LastAudioCaptureTick = Environment.TickCount64;
         AudioCaptureTimer.Tick += SampleTick;
         AudioCaptureTimer.Interval = IntervalFromSampleRate(SelectedSamplingRate);
+        AudioCaptureEnabled = ConfigurationService.Local.IsAudioCaptureActive;
         AudioCaptureTimer.IsEnabled = AudioCaptureEnabled;
+        SelectedAudioCaptureDevice = null;
         Activate();
 
         VTubeStudio.Instance.Events.Track<VTSHotkeyTriggeredEvent>(HandleHotkeyTriggered);
+        VTubeStudio.Instance.Events.Track<VTSModelLoadedEvent>(HandleModelLoaded);
         // TODO: Sub to trigger events.
         //  Calculate triggered state based on event feedbacks (unless VTS is disabled?)
         //VTubeStudio.Instance.OnAuthenticated //...
+        VTubeStudio.Instance.OnAuthenticated += () => _ = UpdateStates();
+    }
+
+    private void HandleModelLoaded(VTSModelLoadedEvent e)
+    {
+        if (e.Data is null) return;
+
+        ModelLoaded = e.Data.ModelLoaded;
+        if (ModelLoaded)
+        {
+            _ = UpdateStates();
+        }
+    }
+
+    partial void OnSelectedResistanceChanged(TriggeredResistance? value)
+    {
+        ConfigurationService.Roaming.SelectedResistanceIndex = Array.IndexOf(Resistances, value);
+    }
+
+    partial void OnActivationPowerChanged(double value)
+    {
+        ConfigurationService.Roaming.ActivationPower = value;
+    }
+
+    partial void OnNormalActivationDurationChanged(double value)
+    {
+        ConfigurationService.Roaming.NormalActivationDuration = value;
+    }
+
+    partial void OnTriggeredReleaseDurationChanged(double value)
+    {
+        ConfigurationService.Roaming.TriggeredReleaseDuration = value;
+    }
+
+    partial void OnNormalActivationJumpChanged(double value)
+    {
+        ConfigurationService.Roaming.NormalActivationJump = value;
+    }
+
+    partial void OnTriggeredActivationJumpChanged(double value)
+    {
+        ConfigurationService.Roaming.TriggeredActivationJump = value;
     }
 
     /// <summary>
@@ -151,14 +242,112 @@ public sealed partial class RootViewModel : ObservableObject
     /// Primarily for debugging.
     /// </remarks>
     [RelayCommand]
-    public async Task UpdateParameters()
+    public async Task UpdateStates()
     {
+        if (!VTubeStudio.Instance.Authenticated)
+        {
+            $"Cannot update! Not authenticated!".Out(ConsoleColor.Yellow);
+            return;
+        }
+
         $"Updating hotkeys and expressions...".Out();
 
         // TODO: Implement.
-        await Task.CompletedTask;
+        try
+        {
+            {
+                var model = await VTubeStudio.Instance.Request<VTSCurrentModelResponse>(VTSCurrentModelRequest.Instance);
+                if (model.ResolveSuccess(out var response) && response.Data is not null)
+                {
+                    ModelLoaded = response.Data.ModelLoaded;
+                    CurrentModel = new()
+                    {
+                        ModelID = response.Data.ModelID,
+                        ModelName = response.Data.ModelName,
+                    };
+                }
+                else
+                {
+                    $"Cannot retrieve current model! State update failed!".Out(ConsoleColor.Red);
+                }
+            }
 
-        $"Update complete!".Out();
+            if (ModelLoaded)
+            {
+                var hotkeys = await VTubeStudio.Instance.Request<VTSModelHotkeysResponse>(new VTSModelHotkeysRequest()
+                {
+                    Data = new()
+                    {
+                        ModelID = string.Empty,
+                        Live2DItemFileName = string.Empty,
+                    },
+                });
+                if (hotkeys.ResolveSuccess(out var result) && result.Data is not null)
+                {
+                    if (result.Data.AvailableHotkeys is null || result.Data.AvailableHotkeys.Length == 0)
+                    {
+                        if (SelectedHotkey is not null)
+                            Hotkeys = [SelectedHotkey];
+                        else
+                            Hotkeys = [];
+                    }
+                    else
+                    {
+                        var list = result.Data.AvailableHotkeys.Select(h => new ModelHotkey()
+                        {
+                            ModelName = CurrentModel.ModelName,
+                            ModelID = CurrentModel.ModelID,
+                            HotkeyID = h.HotkeyID,
+                            HotkeyName = h.Name,
+                            ExpressionFile = h.File,
+                            LinkState = HotkeyLinkState.Dormant,
+                        }).ToList();
+                        if (SelectedHotkey is not null)
+                        {
+                            int index = list.FindIndex(h => h.HotkeyID == SelectedHotkey.HotkeyID);
+                            if (index != -1) list[index] = SelectedHotkey;
+                            else list.Add(SelectedHotkey);
+                        }
+
+                        Hotkeys = [.. list];
+                    }
+
+                    var expressions = Hotkeys.Select(h => new ModelExpression()
+                    {
+                        ExpressionFile = h.ExpressionFile,
+                        LinkState = HotkeyLinkState.Dormant,
+                    }).ToList();
+                    if (SelectedExpression is not null)
+                    {
+                        int index = expressions.FindIndex(h => h.ExpressionFile == SelectedExpression.ExpressionFile);
+                        if (index != -1) expressions[index] = SelectedExpression;
+                        else expressions.Add(SelectedExpression);
+                    }
+
+                    Expressions = [.. expressions];
+                }
+                else
+                {
+                    $"Cannot update hotkey listing! State update failed!".Out(ConsoleColor.Red);
+                }
+            }
+            else
+            {
+                $"No model is loaded. Resetting hotkeys.".Out();
+                if (SelectedHotkey is not null)
+                    Hotkeys = [SelectedHotkey];
+                else
+                    Hotkeys = [];
+
+                if (SelectedExpression is not null)
+                    Expressions = [SelectedExpression];
+                else
+                    Expressions = [];
+            }
+
+            $"Update complete!".Out();
+        }
+        catch (Exception ex) { ex.Out($"State update failed!\n"); }
     }
 
     [RelayCommand]
@@ -174,8 +363,10 @@ public sealed partial class RootViewModel : ObservableObject
         //    },
         //});
 
+        IsTriggered = !IsTriggered;
+
         // TODO: Update hotkey states.
-        var hotkey = Hotkeys.FirstOrDefault(static h => h.State == HotkeyState.Active);
+        var hotkey = Hotkeys.FirstOrDefault(static h => h.LinkState == HotkeyLinkState.Active);
         if (hotkey is null)
         {
             $"No active hotkey is found!".Out();
@@ -196,17 +387,28 @@ public sealed partial class RootViewModel : ObservableObject
     private async void HandleHotkeyTriggered(VTSHotkeyTriggeredEvent e)
     {
         if (e.Data is null) return;
+        var hotkey = Hotkeys.FirstOrDefault(static h => h.LinkState == HotkeyLinkState.Active);
+        if (hotkey is null)
+        {
+            $"No active hotkey! Hotkey event will be ignored.".Out();
+            return;
+        }
+
+        if (hotkey.HotkeyID != e.Data.HotkeyID)
+        {
+            $"Received hotkey trigger doesn't match target hotkey ID. Target Hotkey: {hotkey.HotkeyName}".Out();
+            return;
+        }
+
         if (!e.Data.HotkeyTriggeredByAPI)
         {
             // Used manually triggered the transition.
             FrozenNormalTotalTicks = 0;
             FrozenTriggeredTotalTicks = 0;
             IsFrozen = true;
+            IsTriggered = !IsTriggered; // API hotkeys already predict future state.
         }
 
-        IsTriggered = !IsTriggered;
-        var hotkey = Hotkeys.FirstOrDefault(static h => h.State == HotkeyState.Active);
-        if (hotkey is null) return;
         var result = await VTubeStudio.Instance.Request<VTSExpressionStateResponse>(new VTSExpressionStateRequest()
         {
             Data = new()
@@ -238,6 +440,7 @@ public sealed partial class RootViewModel : ObservableObject
     private void SampleTick(object? sender, EventArgs e)
     {
         long tick = Environment.TickCount64;
+        double delta = TimeSpan.FromMilliseconds(tick - LastAudioCaptureTick).TotalSeconds;
 
         // Handles unfreeze.
         if (IsFrozen)
@@ -287,6 +490,7 @@ public sealed partial class RootViewModel : ObservableObject
             }
         }
 
+        $"Audio volume: {AudioVolume}".Out();
         bool active = AudioVolume >= ActivationThreshold;
         if (!IsActivated && active)
         {
@@ -299,30 +503,54 @@ public sealed partial class RootViewModel : ObservableObject
             }
         }
 
-        if (IsActivated = active)
+        IsActivated = active;
+
+        // Mitigates division by zero exceptions.
+        double power = Math.Clamp(ActivationPower, 0.001, 1000);
+        double threshold = Math.Clamp(ActivationThreshold, 0.001, 1);
+
+        // Indicates how close AudioVolume is to the max possible volume [0.0:1.0], using ActivationThreshold as origin.
+        double from, to, value, result;
+        if (active)
         {
-            // Mitigates division by zero exceptions.
-            if (ActivationPower < double.Epsilon || ActivationThreshold >= 1 - double.Epsilon)
-            {
-                Progress = 1;
-            }
-            else
-            {
-                // Indicates how close AudioVolume is to the max possible volume [0.0:1.0], using ActivationThreshold as origin.
-                double relative = (AudioVolume - ActivationThreshold) / (1 - ActivationThreshold);
-                double speed = Math.Pow(relative, (1 - ActivationPower) / ActivationPower);
-                double multiplier = relative * speed;
-                if (IsTriggered)
-                {
-                    var resistance = SelectedResistance ?? TriggeredResistance.Default;
-                    double direction = 1 + multiplier - resistance.Resistance;
-                    Progress = Math.Clamp(Progress + (direction / TriggeredReleaseDuration), 0, 1);
-                }
-                else
-                {
-                    Progress = Math.Clamp(Progress + (multiplier / NormalActivationDuration), 0, 1);
-                }
-            }
+            value = AudioVolume;
+            from = threshold;
+            to = 1;
+            result = (value - from) / (to - from);
+            result = Math.Pow(result, 0.5) * power; // Values close to 0 are multiplied by ~2-3.
+        }
+        else
+        {
+            value = AudioVolume;
+            from = threshold;
+            to = 0;
+            result = (value - from) / (to - from);
+            result = -Math.Pow(result, 0.5) * 0.3; // Values close to 0 are multiplied by ~2-3.
+        }
+
+
+        //double relative = active
+        //        ? Math.Clamp((AudioVolume - threshold) / (1 - threshold), 0, 1)
+        //        : Math.Clamp(AudioVolume / threshold, 0, 1);
+        //double speed = active ? power : 1;
+        ////double speed = Math.Pow(relative, (1 - power) / power);
+
+        //double multiplier = relative * speed;
+        if (IsTriggered)
+        {
+            var resistance = SelectedResistance ?? TriggeredResistance.Default;
+            $"Resistance: {resistance.Resistance}".Out();
+            value = AudioVolume;
+            from = 1;
+            to = threshold;
+            double relativeActivation = Math.Clamp((value - from) / (to - from), 0, 1);
+            double direction = (-1 * relativeActivation) + (Math.Max(result, 0) * resistance.Resistance);
+            Progress = Math.Clamp(Progress + (direction / TriggeredReleaseDuration * delta), 0, 1);
+        }
+        else
+        {
+            double direction = result;
+            Progress = Math.Clamp(Progress + (direction / NormalActivationDuration * delta), 0, 1);
         }
 
         if (IsTriggered)
@@ -349,11 +577,21 @@ public sealed partial class RootViewModel : ObservableObject
 
     partial void OnIsTriggeredChanged(bool value)
     {
+        AvatarFlags = (IsActivated ? AvatarFlags.Active : default(AvatarFlags))
+            | (IsTriggered ? AvatarFlags.TriggeredNormal : default(AvatarFlags));
         $"IsTriggered changed to: {value}".Out(ConsoleColor.Cyan);
+        ProgressBrush = IsTriggered ? Brushes.Red : Brushes.Yellow;
+    }
+
+    partial void OnIsActivatedChanged(bool value)
+    {
+        AvatarFlags = (IsActivated ? AvatarFlags.Active : default(AvatarFlags))
+            | (IsTriggered ? AvatarFlags.TriggeredNormal : default(AvatarFlags));
     }
 
     partial void OnSelectedSamplingRateChanged(SamplingRate? value)
     {
+        ConfigurationService.Roaming.SelectedSamplingRateIndex = Array.IndexOf(SamplingRates, value);
         AudioCaptureTimer.Interval = IntervalFromSampleRate(value);
     }
 
@@ -380,29 +618,31 @@ public sealed partial class RootViewModel : ObservableObject
             LastJumpTick = 0;
         }
         AudioCaptureTimer.IsEnabled = value;
+        ConfigurationService.Local.IsAudioCaptureActive = value;
     }
 
+    bool IsFocused;
     [RelayCommand] public void Activate() => Application.Current.Dispatcher.Invoke(ActivateImmediate);
     private void ActivateImmediate()
     {
-        if (IsActivated) return;
+        if (IsFocused) return;
         try
         {
-            IsActivated = true;
+            IsFocused = true;
             RefreshInputDevicesImmediate();
             //_ = RefreshExpressions();
             //VTubeStudio.Instance.OnAuthenticated += HandleAuthenticated;
             //if (VTubeStudio.Instance.Authenticated)
             //    HandleAuthenticated();
         }
-        catch { IsActivated = false; throw; }
+        catch { IsFocused = false; throw; }
     }
 
     [RelayCommand] public void Deactivate() => Application.Current.Dispatcher.Invoke(DeactivateImmediate);
     private void DeactivateImmediate()
     {
-        if (!IsActivated) return;
-        IsActivated = false;
+        if (!IsFocused) return;
+        IsFocused = false;
         //VTubeStudio.Instance.OnAuthenticated -= HandleAuthenticated;
     }
 
@@ -423,7 +663,11 @@ public sealed partial class RootViewModel : ObservableObject
         AudioCaptureDevices = [.. collection.Select(static d => new DeviceViewModel() { ID = d.ID, DisplayName = d.FriendlyName })];
         if (SelectedAudioCaptureDevice is null)
         {
-            ActiveAudioCaptureDevice = collection[0];
+            var device = collection.FirstOrDefault(static d => string.Equals(d.ID, ConfigurationService.Roaming.SelectedAudioDeviceID));
+            if (device is null)
+                ActiveAudioCaptureDevice = collection[0];
+            else
+                ActiveAudioCaptureDevice = device;
         }
         else
         {
@@ -434,6 +678,11 @@ public sealed partial class RootViewModel : ObservableObject
         id = ActiveAudioCaptureDevice.ID;
         SelectedAudioCaptureDevice = AudioCaptureDevices.FirstOrDefault(d => d.ID == id);
         $"Input devices refreshed! Found: {AudioCaptureDevices.Length}".Out();
+    }
+
+    partial void OnSelectedAudioCaptureDeviceChanged(DeviceViewModel? value)
+    {
+        ConfigurationService.Roaming.SelectedAudioDeviceID = value?.ID ?? string.Empty;
     }
 
     //Task? RefreshTask;
@@ -549,4 +798,35 @@ public sealed partial class RootViewModel : ObservableObject
     //        ModelExpressions = ModelExpressions.Where(static e => e.Exists).ToArray();
     //    }
     //}
+
+    partial void OnHotkeysChanged(ModelHotkey[] value) => UpdateActive();
+    partial void OnSelectedHotkeyChanged(ModelHotkey? value)
+    {
+        ConfigurationService.Roaming.SelectedHotkey = value;
+        UpdateActive();
+    }
+    partial void OnSelectedExpressionChanged(ModelExpression? value)
+    {
+        ConfigurationService.Roaming.SelectedExpression = value;
+        UpdateActive();
+    }
+    void UpdateActive()
+    {
+        if (SelectedExpression is null || SelectedHotkey is null)
+        {
+            if (Hotkeys is not null)
+                Array.ForEach(Hotkeys, static h => h.LinkState = HotkeyLinkState.Dormant);
+            if (Expressions is not null)
+                Array.ForEach(Expressions, static e => e.LinkState = HotkeyLinkState.Dormant);
+        }
+        else
+        {
+            if (Hotkeys is not null)
+                foreach (var hotkey in Hotkeys)
+                    hotkey.LinkState = hotkey.ExpressionFile == SelectedExpression.ExpressionFile ? HotkeyLinkState.Active : HotkeyLinkState.Dormant;
+            if (Expressions is not null)
+                foreach (var expression in Expressions)
+                    expression.LinkState = expression == SelectedExpression ? HotkeyLinkState.Active : HotkeyLinkState.Dormant;
+        }
+    }
 }

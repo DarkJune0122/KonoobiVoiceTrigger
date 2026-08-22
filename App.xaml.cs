@@ -91,6 +91,7 @@ public partial class App : Application
         {
             try
             {
+                $"Trying to start Singleton server...".Out();
                 using var server = new NamedPipeServerStream(PipeName, PipeDirection.In, 1, PipeTransmissionMode.Byte);
                 await server.WaitForConnectionAsync(token);
                 using var reader = new StreamReader(server);
@@ -126,7 +127,7 @@ public partial class App : Application
                 ex.Out("Failed to start a singleton server!");
                 try
                 {
-                    await Task.Delay(1000, token);
+                    await Task.Delay(10, token);
                 }
                 catch (OperationCanceledException) { break; }
             }

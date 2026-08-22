@@ -37,6 +37,7 @@ public sealed partial class VTubeStudio : ObservableObject
     public VTubeStudio()
     {
         Events.Map<VTSTestEvent>("TestEvent");
+        Events.Map<VTSModelLoadedEvent>("ModelLoadedEvent");
         Events.Map<VTSHotkeyTriggeredEvent>("HotkeyTriggeredEvent");
     }
 
@@ -210,6 +211,77 @@ public sealed partial class VTubeStudio : ObservableObject
                     return;
                 }
 
+                $"{this} Requesting common events...".Out();
+                /*try
+                {
+                    $"Requesting test event...".Out();
+                    var response = await SystemRequest<VTSEventSubscriptionResponse>(new VTSEventSubscriptionRequest
+                    {
+                        Data = new()
+                        {
+                            EventName = "TestEvent",
+                            Subscribe = true,
+                            Config = new VTSECTest()
+                            {
+                                TestMessageForEvent = "test message",
+                            }
+                        }
+                    });
+                    if (!response.Success)
+                    {
+                        "Subscription failed! Restarting soon.".Out(); break;
+                    }
+                    $"Subscription successful!".Out();
+                }
+                catch (Exception ex) { ex.Out("Subscription failed! Restarting soon."); break; }*/
+
+                try
+                {
+                    $"Requesting model loaded event...".Out();
+                    var response = await SystemRequest<VTSEventSubscriptionResponse>(new VTSEventSubscriptionRequest
+                    {
+                        Data = new()
+                        {
+                            EventName = "ModelLoadedEvent",
+                            Subscribe = true,
+                            Config = new VTSECModelLoaded(),
+                        }
+                    });
+                    if (!response.Success)
+                    {
+                        "Subscription failed! Restarting soon.".Out(); break;
+                    }
+                    $"Subscription successful!".Out();
+                }
+                catch (Exception ex) { ex.Out("Subscription failed! Restarting soon."); break; }
+
+                try
+                {
+                    $"Requesting hotkey triggered event...".Out();
+                    var response = await SystemRequest<VTSEventSubscriptionResponse>(new VTSEventSubscriptionRequest
+                    {
+                        Data = new()
+                        {
+                            EventName = "HotkeyTriggeredEvent",
+                            Subscribe = true,
+                            Config = new VTSECHotkeyTriggered()
+                            {
+                                IgnoreHotkeysTriggeredByAPI = false,
+                                OnlyForAction = string.Empty,
+                            }
+                        }
+                    });
+                    if (!response.Success)
+                    {
+                        "Subscription failed! Restarting soon.".Out(); break;
+                    }
+                    $"Subscription successful!".Out();
+                }
+                catch (Exception ex) { ex.Out("Subscription failed! Restarting soon."); break; }
+
+                $"{this} Request successful!".Out();
+
+                $"{this} Authentication is now complete!".Out();
                 SetStatus(socket, VTSStatus.Authenticated);
 
                 // Lets user use the socket until any issues happen.

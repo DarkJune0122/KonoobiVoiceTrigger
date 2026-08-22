@@ -7,4 +7,5 @@ public sealed class LocalConfiguration : ConfigurationTemplate
 {
     [JsonIgnore] protected override string FilePath => ConfigurationService.LocalConfigurationFilePath;
 
+    [JsonInclude] public bool IsAudioCaptureActive { get; set; } = false;
 }

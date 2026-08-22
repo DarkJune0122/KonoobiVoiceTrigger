@@ -7,7 +7,7 @@ namespace VoiceTrigger.VTS.Events;
 public sealed class VTSECHotkeyTriggered : VTSEventConfig
 {
     [JsonPropertyName("onlyForAction")] public required string? OnlyForAction { get; set; }
-    [JsonPropertyName("ignoreHotkeysTriggeredByAPI")] public required string? IgnoreHotkeysTriggeredByAPI { get; set; }
+    [JsonPropertyName("ignoreHotkeysTriggeredByAPI")] public required bool IgnoreHotkeysTriggeredByAPI { get; set; }
 
     public override StringBuilder ToString(StringBuilder b, string prefix = "")
     {

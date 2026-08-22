@@ -1,4 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using Newtonsoft.Json.Linq;
+using System.ComponentModel;
 using System.Windows.Controls;
 using System.Windows.Media;
 
@@ -11,13 +13,23 @@ namespace VoiceTrigger.Controls;
 public partial class AvatarControl : UserControl
 {
     public static readonly DependencyProperty NormalImageProperty =
-        DependencyProperty.Register(nameof(NormalImage), typeof(ImageSource), typeof(AvatarControl), new PropertyMetadata(null));
+        DependencyProperty.Register(nameof(NormalImage), typeof(ImageSource),
+            typeof(AvatarControl), new PropertyMetadata(null));
     public static readonly DependencyProperty ActiveImageProperty =
-        DependencyProperty.Register(nameof(ActiveImage), typeof(ImageSource), typeof(AvatarControl), new PropertyMetadata(null));
+        DependencyProperty.Register(nameof(ActiveImage), typeof(ImageSource),
+            typeof(AvatarControl), new PropertyMetadata(null));
     public static readonly DependencyProperty TriggeredNormalImageProperty =
-        DependencyProperty.Register(nameof(TriggeredNormalImage), typeof(ImageSource), typeof(AvatarControl), new PropertyMetadata(null));
+        DependencyProperty.Register(nameof(TriggeredNormalImage), typeof(ImageSource),
+            typeof(AvatarControl), new PropertyMetadata(null));
     public static readonly DependencyProperty TriggeredActiveImageProperty =
-        DependencyProperty.Register(nameof(TriggeredActiveImage), typeof(ImageSource), typeof(AvatarControl), new PropertyMetadata(null));
+        DependencyProperty.Register(nameof(TriggeredActiveImage), typeof(ImageSource),
+            typeof(AvatarControl), new PropertyMetadata(null));
+    public static readonly DependencyProperty AuthenticatedProperty =
+        DependencyProperty.Register(nameof(Authenticated), typeof(bool),
+            typeof(AvatarControl), new PropertyMetadata(false));
+    public static readonly DependencyProperty AvatarFlagsProperty =
+        DependencyProperty.Register(nameof(AvatarFlags), typeof(AvatarFlags),
+            typeof(AvatarControl), new PropertyMetadata(VoiceTrigger.AvatarFlags.Normal));
 
     public ImageSource? NormalImage
     {
@@ -39,9 +51,16 @@ public partial class AvatarControl : UserControl
         get => (ImageSource?)GetValue(TriggeredActiveImageProperty);
         set => SetValue(TriggeredActiveImageProperty, value);
     }
-
-    [ObservableProperty] public partial bool Authenticated { get; set; }
-    [ObservableProperty] public partial AvatarFlags AvatarFlags { get; set; }
+    public bool Authenticated
+    {
+        get => (bool)GetValue(AuthenticatedProperty);
+        set => SetValue(AuthenticatedProperty, value);
+    }
+    public AvatarFlags AvatarFlags
+    {
+        get => (AvatarFlags)GetValue(AvatarFlagsProperty);
+        set => SetValue(AvatarFlagsProperty, value);
+    }
 
     public AvatarControl()
     {
@@ -53,21 +72,30 @@ public partial class AvatarControl : UserControl
         base.OnInitialized(e);
     }
 
-    partial void OnAuthenticatedChanged(bool value)
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
-        // TODO: Enable/Disable effect.
-    }
-
-    partial void OnAvatarFlagsChanged(AvatarFlags value)
-    {
-        // TODO: Animate jump and a sprite change.
-        Renderer.Source = value switch
+        base.OnPropertyChanged(e);
+        if (e.Property == AuthenticatedProperty)
         {
-            AvatarFlags.Normal => NormalImage,
-            AvatarFlags.Active => ActiveImage,
-            AvatarFlags.TriggeredNormal => TriggeredNormalImage,
-            AvatarFlags.TriggeredActive => TriggeredActiveImage,
-            _ => NormalImage,
-        };
+            // TODO: Enable/Disable effect.
+
+        }
+
+        if (e.Property == NormalImageProperty ||
+            e.Property == ActiveImageProperty ||
+            e.Property == TriggeredNormalImageProperty ||
+            e.Property == TriggeredActiveImageProperty ||
+            e.Property == AvatarFlagsProperty)
+        {
+            // TODO: Animate jump and a sprite change.
+            Renderer.Source = AvatarFlags switch
+            {
+                AvatarFlags.Normal => NormalImage,
+                AvatarFlags.Active => ActiveImage,
+                AvatarFlags.TriggeredNormal => TriggeredNormalImage,
+                AvatarFlags.TriggeredActive => TriggeredActiveImage,
+                _ => NormalImage,
+            };
+        }
     }
 }

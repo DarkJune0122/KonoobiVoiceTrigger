@@ -1,11 +1,11 @@
 ﻿namespace VoiceTrigger;
 
-public enum HotkeyState
+public enum HotkeyLinkState
 {
     /// <summary>
     /// Defaults to inactive when VTS is disconnected.
     /// </summary>
-    Disconnected,
+    //Disconnected,
     /// <summary>
     /// Not in use at the moment.
     /// Returned when hotkey belongs to an currently unloaded model.
@@ -22,5 +22,5 @@ public enum HotkeyState
     /// <remarks>
     /// Both conflicting hotkeys will be ignored.
     /// </remarks>
-    Conflicting,
+    //Conflicting,
 }

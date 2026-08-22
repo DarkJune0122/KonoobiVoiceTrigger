@@ -12,6 +12,9 @@
     <Title>Konoobi Voice Trigger</Title>
     <Copyright>SANDCorp, Shade of Singularity (SoG)</Copyright>
     <LangVersion>preview</LangVersion>
+    <Version>0.7.0.0</Version>
+    <AssemblyVersion>$(Version)</AssemblyVersion>
+    <PackageVersion>$(Version)</PackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,6 +27,7 @@
   <ItemGroup>
     <None Remove="icon.ico" />
     <None Remove="Resources\ibok-active.png" />
+    <None Remove="Resources\ibok-normal-unused.png" />
     <None Remove="Resources\ibok-normal.png" />
     <None Remove="Resources\kobi-active.png" />
     <None Remove="Resources\kobi-normal.png" />
@@ -31,6 +35,9 @@
 
   <ItemGroup>
     <Content Include="Resources\ibok-active.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\ibok-normal-unused.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\ibok-normal.png">

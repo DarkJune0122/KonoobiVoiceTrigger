@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using VoiceTrigger.Services;
@@ -125,6 +126,7 @@ public partial class MainWindow : FluentWindow
 
     private void FluentWindow_Deactivated(object sender, EventArgs e)
     {
+        ConfigurationService.Save();
         if (DataContext is RootViewModel model)
             model.Deactivate();
         else $"Not a {nameof(RootViewModel)}!".Out(ConsoleColor.Yellow);
@@ -142,5 +144,16 @@ public partial class MainWindow : FluentWindow
         //    TestBox.ItemsSource = Array.Empty<string>();
         //    TestBox.SelectedItem.Out("Selected: ", ConsoleColor.Yellow);
         //}
+    }
+
+    private void FluentWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not null && e.OriginalSource is DependencyObject element)
+        {
+            if (element is Grid or StackPanel or Border or Window)
+            {
+                Keyboard.ClearFocus();
+            }
+        }
     }
 }

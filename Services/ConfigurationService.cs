@@ -32,7 +32,7 @@ public static class ConfigurationService
             var special = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             LocalDirectory = Path.Combine(special, "Sandcorp", nameof(VoiceTrigger));
             try { Directory.CreateDirectory(LocalDirectory); } catch (Exception ex) { ex.Out(); }
-            LocalConfigurationFilePath = Path.Combine(RoamingDirectory, "config.json");
+            LocalConfigurationFilePath = Path.Combine(LocalDirectory, "config.json");
         }
 
         // Common.
@@ -40,7 +40,7 @@ public static class ConfigurationService
             var special = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
             CommonDirectory = Path.Combine(special, "Sandcorp", nameof(VoiceTrigger));
             try { Directory.CreateDirectory(CommonDirectory); } catch (Exception ex) { ex.Out(); }
-            CommonConfigurationFilePath = Path.Combine(RoamingDirectory, "config.json");
+            CommonConfigurationFilePath = Path.Combine(CommonDirectory, "config.json");
         }
     }
 
