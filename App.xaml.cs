@@ -19,7 +19,7 @@ public partial class App : Application
     static Mutex? SingletonMutex;
 
     public static readonly string LocalAppDataFolder
-        = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sandcorp", "Voice Trigger");
+        = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sandcorp", "VoiceTrigger");
 
     public static RootViewModel RootViewModel => (RootViewModel)Current.Resources[nameof(VoiceTrigger.RootViewModel)];
     public static Color IndicatorKobiColor => (Color)Current.Resources[nameof(IndicatorKobiColor)];

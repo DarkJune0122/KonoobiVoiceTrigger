@@ -139,7 +139,7 @@ public sealed partial class VTubeStudio : ObservableObject
                         Data = new()
                         {
                             PluginName = "Voice Trigger",
-                            PluginDeveloper = "SANDCorp, SoG",
+                            PluginDeveloper = "Sandcorp, SoG",
                             AuthenticationToken = auth,
                         }
                     });
@@ -182,7 +182,7 @@ public sealed partial class VTubeStudio : ObservableObject
                         Data = new()
                         {
                             PluginName = "Voice Trigger",
-                            PluginDeveloper = "SANDCorp, SoG",
+                            PluginDeveloper = "Sandcorp, SoG",
                             PluginIcon = image
                         }
                     });
@@ -192,7 +192,28 @@ public sealed partial class VTubeStudio : ObservableObject
                         string auth = response.Data.AuthenticationToken;
                         try
                         {
+                            Directory.CreateDirectory(Path.GetDirectoryName(AuthFilePath) ?? string.Empty); 
                             await File.WriteAllTextAsync(AuthFilePath, auth);
+                            $"{this} New Auth token saved successfully!".Out();
+
+                            var authResult = await SystemRequest<VTSAuthenticationResponse>(new VTSAuthenticationRequest
+                            {
+                                Data = new()
+                                {
+                                    PluginName = "Voice Trigger",
+                                    PluginDeveloper = "Sandcorp, SoG",
+                                    AuthenticationToken = auth,
+                                }
+                            });
+                            if (authResult.ResolveSuccess(out var authResponse) && authResponse.Data?.Authenticated == true)
+                            {
+                                authenticated = true;
+                                $"{this} Plugin authentication successful! New session started!".Out(ConsoleColor.Green);
+                            }
+                            else
+                            {
+                                $"{this} Cannot authenticate with a new session token!\n{authResponse}".Out(ConsoleColor.Yellow);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -208,7 +229,8 @@ public sealed partial class VTubeStudio : ObservableObject
                 if (!authenticated)
                 {
                     $"{this} Authentication failed! Communication will stop.".Out(ConsoleColor.Red);
-                    return;
+                    await Task.Delay(200, token);
+                    continue;
                 }
 
                 $"{this} Requesting common events...".Out();
@@ -536,8 +558,12 @@ public sealed partial class VTubeStudio : ObservableObject
                 return VTSRequestResult<T>.Failed;
             }
 
+            // TODO: Add custom timeout support for requests.
             await SendQueue.Writer.WriteAsync(new(requestID, json));
-            using var cancellation = new CancellationTokenSource(RequestTimeout);
+            int timeout = RequestTimeout;
+            if (typeof(T) == typeof(VTSAuthenticationTokenRequest))
+                timeout = int.MaxValue;
+            using var cancellation = new CancellationTokenSource(timeout);
             using var registration = cancellation.Token.Register(() => { "Timeout!".Out(ConsoleColor.Yellow); source.TrySetCanceled(); });
             using var result = await source.Task;
             if (!result.Success)

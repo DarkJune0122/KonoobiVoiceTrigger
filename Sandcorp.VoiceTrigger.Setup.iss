@@ -1,6 +1,6 @@
 #define public Dependency_Path_NetCoreCheck "dependencies\"
 #define CompileMode "Debug"  
-#define Version "0.7.0.0"
+#define Version "0.8.0.0"
 
 #include "CodeDependencies.iss"
 
@@ -31,12 +31,11 @@ Name: en; MessagesFile: "compiler:Default.isl"
 // Source: "VoiceTrigger\bin\{#CompileMode}\net7.0-windows\win-x64\ffmpeg\x86\*"; DestDir: "{app}\ffmpeg\x86";
 Source: "bin\{#CompileMode}\net9.0-windows\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+// [Tasks]
+// Name: startup; Description: "Automatically start on login"; GroupDescription: "{cm:AdditionalIcons}"
 
-[Tasks]
-Name: startup; Description: "Automatically start on login"; GroupDescription: "{cm:AdditionalIcons}"
-
-[Icons]
-Name: "{commonprograms}\Voice Trigger"; Filename: "{app}\VoiceTrigger.exe"; Tasks: startup
+// [Icons]
+// Name: "{commonprograms}\Voice Trigger"; Filename: "{app}\VoiceTrigger.exe"; Tasks: startup
 
 [Code]
 
