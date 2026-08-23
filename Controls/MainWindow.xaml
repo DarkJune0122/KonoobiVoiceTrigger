@@ -18,7 +18,7 @@
 
     ExtendsContentIntoTitleBar="True"
     ResizeMode="NoResize"
-    Title="MainWindow" MinHeight="90" Height="430" MinWidth="900" Width="560">
+    Title="MainWindow" MinHeight="430" Height="430" MinWidth="900" Width="900">
     <ui:FluentWindow.Resources>
         <!--<Style x:Key="TitleButtonStyle" TargetType="ui:Button">
             <Setter Property="BorderThickness" Value="0"/>
@@ -27,13 +27,13 @@
         </Style>-->
     </ui:FluentWindow.Resources>
     <StackPanel Orientation="Vertical">
-        <ui:Button Visibility="Hidden" Width="0" Height="0" IsDefault="True"/>
+        <!--<ui:Button Visibility="Hidden" Width="0" Height="0" IsDefault="True"/>-->
         
         <!--Title Bar-->
         <ui:TitleBar Height="35" HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
                      ShowMaximize="False" ShowMinimize="False" ShowClose="False" ShowHelp="False">
             <ui:TitleBar.Header>
-                <Grid x:Name="Header" Width="720">
+                <Grid x:Name="Header" Width="900">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -97,11 +97,12 @@
         <Grid Margin="4,0,4,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <ComboBox Grid.Column="0" MinWidth="240"
-                      ItemsSource="{Binding AudioCaptureDevices, Mode=OneTime}"
+            <ComboBox Grid.Column="0" MinWidth="240" Margin="0,0,6,0"
+                      ItemsSource="{Binding AudioCaptureDevices, Mode=OneWay}"
                       SelectedItem="{Binding SelectedAudioCaptureDevice, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
@@ -109,18 +110,31 @@
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
+            <ComboBox Grid.Column="1" MinWidth="90"
+                      ItemsSource="{Binding SamplingRates, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedSamplingRate, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <ui:TextBlock Text="{Binding DisplayText}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
 
-            <!--<ComboBox Grid.Column="1" x:Name="TestBox"></ComboBox>-->
-            
-            <ComboBox Grid.Column="2" MinWidth="360"
-                      ItemsSource="{Binding Expressions, Mode=OneTime}"
+            <!--<ComboBox Grid.Column="3" MinWidth="360"
+                      ItemsSource="{Binding Expressions, Mode=OneWay}"
                       SelectedItem="{Binding SelectedExpression, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Orientation="Vertical">
-                            <ui:TextBlock Text="{Binding DisplayName}"/>
-                            <ui:TextBlock Text="{Binding ModelName}" Margin="8,0,0,0" FontSize="12" FontStyle="Italic" Foreground="Gray" />
-                        </StackPanel>
+                        <ui:TextBlock Text="{Binding ExpressionFile}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>-->
+            <ComboBox Grid.Column="3" MinWidth="360"
+                      ItemsSource="{Binding Expressions, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedExpression, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <ui:TextBlock Text="{Binding ExpressionFile}"/>
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
@@ -136,7 +150,7 @@
                 <!--Top slider-->
                 <Grid Margin="0,0,0,2">
                     <Slider Orientation="Horizontal" Background="Transparent"
-                            Minimum="0" Maximum="1"
+                            Minimum="0" Maximum="1" SmallChange="0.001"
                             IsSnapToTickEnabled="False"
                             Value="{Binding ActivationThreshold}"
                             BorderThickness="10">
@@ -165,7 +179,7 @@
                 </Grid>
                 <Grid Margin="0,0,0,2">
                     <Slider Orientation="Horizontal" Background="Transparent"
-                            Minimum="0" Maximum="1"
+                            Minimum="0" Maximum="1" SmallChange="0.001"
                             IsSnapToTickEnabled="False"
                             Value="{Binding NormalActivationJump}"
                             BorderThickness="10">
@@ -204,7 +218,7 @@
                 </Grid>
                 <Grid Margin="0,0,0,2">
                     <Slider Orientation="Horizontal" Background="Transparent"
-                            Minimum="0" Maximum="1"
+                            Minimum="0" Maximum="1" SmallChange="0.001"
                             IsSnapToTickEnabled="False"
                             Value="{Binding TriggeredActivationJump}"
                             BorderThickness="10">
@@ -234,7 +248,7 @@
                     <ui:TextBlock Grid.Column="0" Text="Activation Power: " FontSize="14" VerticalAlignment="Center"
                                   Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
                     <Slider Grid.Column="1" Margin="8,0,8,0" Orientation="Horizontal" Background="Transparent" VerticalAlignment="Center"
-                            Minimum="0" Maximum="10"
+                            Minimum="0" Maximum="10" SmallChange="0.001"
                             IsSnapToTickEnabled="False"
                             Value="{Binding ActivationPower, Mode=TwoWay}"
                             BorderThickness="10"/>
@@ -258,12 +272,8 @@
                                 <ui:TextBlock Text="Time until IBOK: " FontSize="14" VerticalAlignment="Center"
                                               Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                                 <ui:TextBox Margin="10,0,0,0" Text="{Binding NormalActivationDuration}"
-                                            TextAlignment="Right" Width="96" BorderThickness="0" Height="36" >
-                                    <ui:TextBox.InputBindings>
-                                        <KeyBinding Key="Enter" Command="{Binding SubmitCommand}"/>
-                                    </ui:TextBox.InputBindings>
-                                </ui:TextBox>
-                                <ui:TextBlock Text="s" FontSize="14" VerticalAlignment="Center"
+                                            TextAlignment="Right" Width="96" BorderThickness="0" Height="36" />
+                                <ui:TextBlock Margin="2,0,0,0" Text="s" FontSize="14" VerticalAlignment="Center"
                                               Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
                             </StackPanel>
                             <!--<StackPanel Orientation="Horizontal">
@@ -275,15 +285,15 @@
                     </StackPanel>
                     <Rectangle Margin="4,4,4,4" Width="1" Grid.Column="1" Fill="DarkGray"/>
                     <StackPanel Grid.Column="2" Orientation="Vertical">
-                        <ui:TextBlock Margin="0,4,0,6" Text="IBOK state" FontSize="14" TextAlignment="Center"
+                        <ui:TextBlock Margin="0,4,0,6" Text="IBOK state" FontSize="18" TextAlignment="Center"
                                       HorizontalAlignment="Stretch" VerticalAlignment="Center"
                                       Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                         <StackPanel Margin="0,0,0,2" Orientation="Horizontal" HorizontalAlignment="Center">
                             <StackPanel Margin="0,0,32,0" Orientation="Horizontal">
-                                <ui:TextBlock Text="Time until Kobi: " FontSize="18" VerticalAlignment="Center"
+                                <ui:TextBlock Text="Time until Kobi: " FontSize="14" VerticalAlignment="Center"
                                               Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                                 <ui:TextBox Margin="10,0,0,0" Text="{Binding TriggeredReleaseDuration}" TextAlignment="Right" Width="96" BorderThickness="0" Height="36" />
-                                <ui:TextBlock Text="s" FontSize="14" VerticalAlignment="Center"
+                                <ui:TextBlock Margin="2,0,0,0" Text="s" FontSize="14" VerticalAlignment="Center"
                                               Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
                             </StackPanel>
                             <StackPanel Margin="0,0,0,0" Orientation="Horizontal">
@@ -341,10 +351,16 @@
                       SelectedItem="{Binding SelectedHotkey, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Orientation="Vertical">
+                        <StackPanel Orientation="Vertical" Margin="4,0,0,0">
                             <ui:TextBlock Text="{Binding HotkeyName}"/>
-                            <ui:TextBlock Text="{Binding ExpressionFileName}" FontSize="10" FontStyle="Italic"/>
-                            <ui:TextBlock Text="{Binding ModelName}" FontSize="10" FontStyle="Italic"/>
+                            <StackPanel Orientation="Horizontal">
+                                <ui:TextBlock Text="Expression: " FontSize="10" FontStyle="Italic" />
+                                <ui:TextBlock Text="{Binding ExpressionFile}" FontSize="10" FontStyle="Italic"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <ui:TextBlock Text="Model: " FontSize="10" FontStyle="Italic" />
+                                <ui:TextBlock Text="{Binding ModelName}" FontSize="10" FontStyle="Italic"/>
+                            </StackPanel>
                         </StackPanel>
                     </DataTemplate>
                 </ComboBox.ItemTemplate>

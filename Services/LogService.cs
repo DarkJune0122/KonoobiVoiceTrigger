@@ -32,7 +32,7 @@ public static class LogService
         if (IsInitialized)
         {
             content ??= string.Empty;
-            string[] lines = content.Split(["\n\r", "\n", "\r"], StringSplitOptions.None);
+            string[] lines = content.Split(["\r\n", "\n", "\r"], StringSplitOptions.None);
             foreach (var line in lines)
             {
                 LogWriter.Write('[');

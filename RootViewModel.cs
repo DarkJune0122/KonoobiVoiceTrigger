@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
@@ -36,7 +37,8 @@ public sealed partial class RootViewModel : ObservableObject
     [ObservableProperty] public partial ModelHotkey? SelectedHotkey { get; set; }
     [ObservableProperty] public partial ModelExpression[] Expressions { get; set; } = [];
     [ObservableProperty] public partial ModelExpression? SelectedExpression { get; set; }
-    [ObservableProperty] public partial Model CurrentModel { get; set; }
+    [ObservableProperty] public partial Model? CurrentModel { get; set; }
+    [MemberNotNullWhen(true, nameof(CurrentModel))]
     [ObservableProperty] public partial bool ModelLoaded { get; set; }
     [ObservableProperty] public partial bool IsActivated { get; set; } = false;
     [ObservableProperty] public partial bool IsTriggered { get; set; } = false;
@@ -44,6 +46,10 @@ public sealed partial class RootViewModel : ObservableObject
     [ObservableProperty] public partial Brush ProgressBrush { get; set; } = Brushes.Yellow;
 
     // Trigger controls.
+    /// <summary>
+    /// Generally, for the entire feature.
+    /// </summary>
+    [ObservableProperty] public partial bool EnableFreezing { get; set; } = false; // Debug.
     /// <summary>
     /// Whether system inputs is frozen. Happens when you manually switch the states.
     /// </summary>
@@ -90,11 +96,11 @@ public sealed partial class RootViewModel : ObservableObject
     /// <remarks>
     /// Jump can only activate with an interval of <see cref="MinimumJumpSpacingMs"/>.
     /// </remarks>
-    [ObservableProperty] public partial double NormalActivationJump { get; set; } = 0;
+    [ObservableProperty] public partial double NormalActivationJump { get; set; } = 0.05;
     /// <summary>
     /// Immediate triggered state progress gain from crossing the <see cref="ActivationThreshold"/>.
     /// </summary>
-    [ObservableProperty] public partial double TriggeredActivationJump { get; set; } = 0;
+    [ObservableProperty] public partial double TriggeredActivationJump { get; set; } = 0.025;
     [ObservableProperty] public partial TriggeredResistance[] Resistances { get; set; } = [];
     [ObservableProperty] public partial TriggeredResistance? SelectedResistance { get; set; }
     /// <summary>
@@ -119,6 +125,12 @@ public sealed partial class RootViewModel : ObservableObject
         TriggeredReleaseDuration = ConfigurationService.Roaming.TriggeredReleaseDuration;
         NormalActivationDuration = ConfigurationService.Roaming.NormalActivationDuration;
         TriggeredActivationJump = ConfigurationService.Roaming.TriggeredActivationJump;
+
+        EnableFreezing = ConfigurationService.Roaming.EnableFreezing;
+        AllowUnfreezeWhileNormal = ConfigurationService.Roaming.AllowUnfreezeWhileNormal;
+        NormalUnfreezeDelay = ConfigurationService.Roaming.NormalUnfreezeDelay;
+        AllowUnfreezeWhileTriggered = ConfigurationService.Roaming.AllowUnfreezeWhileTriggered;
+        TriggeredUnfreezeDelay = ConfigurationService.Roaming.TriggeredUnfreezeDelay;
 
         var hotkey = ConfigurationService.Roaming.SelectedHotkey;
         if (hotkey is not null)
@@ -160,7 +172,7 @@ public sealed partial class RootViewModel : ObservableObject
         ];
         index = ConfigurationService.Roaming.SelectedSamplingRateIndex;
         if (index < 0 || index > SamplingRates.Length)
-            SelectedSamplingRate = SamplingRates[2];
+            SelectedSamplingRate = SamplingRates[7];
         else
             SelectedSamplingRate = SamplingRates[index];
 
@@ -203,6 +215,36 @@ public sealed partial class RootViewModel : ObservableObject
         {
             _ = UpdateStates();
         }
+    }
+
+    partial void OnExpressionsChanged(ModelExpression[] oldValue, ModelExpression[] newValue)
+    {
+        $"Expressions changed! From ({oldValue?.Length}) to ({newValue?.Length})".Out();
+    }
+
+    partial void OnEnableFreezingChanged(bool value)
+    {
+        ConfigurationService.Roaming.EnableFreezing = value;
+    }
+
+    partial void OnAllowUnfreezeWhileNormalChanged(bool value)
+    {
+        ConfigurationService.Roaming.AllowUnfreezeWhileNormal = value;
+    }
+
+    partial void OnNormalUnfreezeDelayChanged(double value)
+    {
+        ConfigurationService.Roaming.NormalUnfreezeDelay = value;
+    }
+
+    partial void OnAllowUnfreezeWhileTriggeredChanged(bool value)
+    {
+        ConfigurationService.Roaming.AllowUnfreezeWhileTriggered = value;
+    }
+
+    partial void OnTriggeredUnfreezeDelayChanged(double value)
+    {
+        ConfigurationService.Roaming.TriggeredUnfreezeDelay = value;
     }
 
     partial void OnSelectedResistanceChanged(TriggeredResistance? value)
@@ -269,6 +311,8 @@ public sealed partial class RootViewModel : ObservableObject
                 else
                 {
                     $"Cannot retrieve current model! State update failed!".Out(ConsoleColor.Red);
+                    ModelLoaded = false;
+                    CurrentModel = null;
                 }
             }
 
@@ -293,15 +337,16 @@ public sealed partial class RootViewModel : ObservableObject
                     }
                     else
                     {
-                        var list = result.Data.AvailableHotkeys.Select(h => new ModelHotkey()
-                        {
-                            ModelName = CurrentModel.ModelName,
-                            ModelID = CurrentModel.ModelID,
-                            HotkeyID = h.HotkeyID,
-                            HotkeyName = h.Name,
-                            ExpressionFile = h.File,
-                            LinkState = HotkeyLinkState.Dormant,
-                        }).ToList();
+                        var list = result.Data.AvailableHotkeys.Where(static h => !string.IsNullOrWhiteSpace(h.File))
+                            .Select(h => new ModelHotkey()
+                            {
+                                ModelName = CurrentModel.ModelName,
+                                ModelID = CurrentModel.ModelID,
+                                HotkeyID = h.HotkeyID,
+                                HotkeyName = h.Name,
+                                ExpressionFile = h.File,
+                                LinkState = HotkeyLinkState.Dormant,
+                            }).ToList();
                         if (SelectedHotkey is not null)
                         {
                             int index = list.FindIndex(h => h.HotkeyID == SelectedHotkey.HotkeyID);
@@ -325,6 +370,18 @@ public sealed partial class RootViewModel : ObservableObject
                     }
 
                     Expressions = [.. expressions];
+
+                    if (SelectedExpression is not null)
+                    {
+                        if (string.IsNullOrWhiteSpace(SelectedExpression.ExpressionFile))
+                        {
+                            $"Omitting expression state update - selected expression registered with an empty file name!".Out(ConsoleColor.Yellow);
+                        }
+                        else
+                        {
+                            SyncExpressionState(SelectedExpression.ExpressionFile);
+                        }
+                    }
                 }
                 else
                 {
@@ -364,6 +421,10 @@ public sealed partial class RootViewModel : ObservableObject
         //});
 
         IsTriggered = !IsTriggered;
+        if (IsTriggered)
+            Progress = 1;
+        else
+            Progress = 0;
 
         // TODO: Update hotkey states.
         var hotkey = Hotkeys.FirstOrDefault(static h => h.LinkState == HotkeyLinkState.Active);
@@ -384,7 +445,7 @@ public sealed partial class RootViewModel : ObservableObject
         });
     }
 
-    private async void HandleHotkeyTriggered(VTSHotkeyTriggeredEvent e)
+    private void HandleHotkeyTriggered(VTSHotkeyTriggeredEvent e)
     {
         if (e.Data is null) return;
         var hotkey = Hotkeys.FirstOrDefault(static h => h.LinkState == HotkeyLinkState.Active);
@@ -403,18 +464,41 @@ public sealed partial class RootViewModel : ObservableObject
         if (!e.Data.HotkeyTriggeredByAPI)
         {
             // Used manually triggered the transition.
-            FrozenNormalTotalTicks = 0;
-            FrozenTriggeredTotalTicks = 0;
-            IsFrozen = true;
+            if (EnableFreezing)
+            {
+                FrozenNormalTotalTicks = 0;
+                FrozenTriggeredTotalTicks = 0;
+                IsFrozen = true;
+            }
             IsTriggered = !IsTriggered; // API hotkeys already predict future state.
+            if (IsTriggered)
+                Progress = 1;
+            else
+                Progress = 0;
         }
+
+        if (string.IsNullOrWhiteSpace(hotkey.ExpressionFile))
+        {
+            $"Omitting expression state request - selected hotkey has an empty expression file!".Out(ConsoleColor.Yellow);
+            SyncExpressionState(hotkey.ExpressionFile ?? string.Empty);
+        }
+    }
+
+    private async void SyncExpressionState(string expressionFile)
+    {
+        if (string.IsNullOrWhiteSpace(expressionFile))
+        {
+            $"Provided empty expression state! Expression state sync omitted!".Out(ConsoleColor.Yellow);
+            return;
+        }
+
 
         var result = await VTubeStudio.Instance.Request<VTSExpressionStateResponse>(new VTSExpressionStateRequest()
         {
             Data = new()
             {
                 Details = false,
-                ExpressionFile = hotkey.ExpressionFile,
+                ExpressionFile = expressionFile,
             }
         });
 
@@ -429,7 +513,17 @@ public sealed partial class RootViewModel : ObservableObject
             {
                 $"Multiple expressions listed under one file! Triggered state might be inaccurate.".Out(ConsoleColor.Yellow);
             }
-            IsTriggered = response.Data.Expressions.Any(static e => e.Active);
+
+            bool currentState = response.Data.Expressions.Any(static e => e.Active);
+            if (IsTriggered != currentState)
+            {
+                IsTriggered = currentState;
+                if (IsTriggered)
+                    Progress = 1;
+                else
+                    Progress = 0;
+            }
+
         }
         else
         {
@@ -490,7 +584,7 @@ public sealed partial class RootViewModel : ObservableObject
             }
         }
 
-        $"Audio volume: {AudioVolume}".Out();
+        //$"Audio volume: {AudioVolume}".Out();
         bool active = AudioVolume >= ActivationThreshold;
         if (!IsActivated && active)
         {
@@ -539,7 +633,7 @@ public sealed partial class RootViewModel : ObservableObject
         if (IsTriggered)
         {
             var resistance = SelectedResistance ?? TriggeredResistance.Default;
-            $"Resistance: {resistance.Resistance}".Out();
+            //$"Resistance: {resistance.Resistance}".Out();
             value = AudioVolume;
             from = 1;
             to = threshold;
@@ -553,22 +647,18 @@ public sealed partial class RootViewModel : ObservableObject
             Progress = Math.Clamp(Progress + (direction / NormalActivationDuration * delta), 0, 1);
         }
 
-        if (IsTriggered)
+        // Only visual updates while frozen.
+        if (!IsFrozen)
         {
-            if (Progress <= double.Epsilon)
+            if (IsTriggered)
             {
-                IsTriggered = false;
-                // Send state to the remote.
-                // Do not send if IsFrozen.
+                if (Progress <= double.Epsilon)
+                    _ = TriggerVTSHotkey();
             }
-        }
-        else
-        {
-            if (Progress >= 1 - double.Epsilon)
+            else
             {
-                IsTriggered = true;
-                // Send state to remote.
-                // Do not send if IsFrozen.
+                if (Progress >= 1 - double.Epsilon)
+                    _ = TriggerVTSHotkey();
             }
         }
 
@@ -607,8 +697,9 @@ public sealed partial class RootViewModel : ObservableObject
     {
         if (!value)
         {
-            AudioVolume = 0;
+            // Note: it might be beneficial to let progress go down while mic input is off.
             Progress = 0;
+            AudioVolume = 0;
         }
         else
         {

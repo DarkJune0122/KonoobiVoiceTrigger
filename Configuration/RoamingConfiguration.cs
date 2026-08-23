@@ -11,10 +11,15 @@ public sealed class RoamingConfiguration : ConfigurationTemplate
     [JsonInclude] public double NormalActivationDuration { get; set; } = 6;
     [JsonInclude] public double TriggeredReleaseDuration { get; set; } = 48;
     [JsonInclude] public double NormalActivationJump { get; set; } = 0.05;
-    [JsonInclude] public double TriggeredActivationJump { get; set; } = 0.05;
-    [JsonInclude] public int SelectedResistanceIndex { get; set; } = 2;
-    [JsonInclude] public int SelectedSamplingRateIndex { get; set; } = 1;
+    [JsonInclude] public double TriggeredActivationJump { get; set; } = 0.025;
+    [JsonInclude] public int SelectedResistanceIndex { get; set; } = -1;
+    [JsonInclude] public int SelectedSamplingRateIndex { get; set; } = -1;
     [JsonInclude] public string SelectedAudioDeviceID { get; set; } = string.Empty;
     [JsonInclude] public ModelHotkey? SelectedHotkey { get; set; }
     [JsonInclude] public ModelExpression? SelectedExpression { get; set; }
+    [JsonInclude] public bool EnableFreezing { get; set; } = false; // Debug.
+    [JsonInclude] public bool AllowUnfreezeWhileNormal { get; set; } = true;
+    [JsonInclude] public double NormalUnfreezeDelay { get; set; } = 15;
+    [JsonInclude] public bool AllowUnfreezeWhileTriggered { get; set; } = true;
+    [JsonInclude] public double TriggeredUnfreezeDelay { get; set; } = 30;
 }
