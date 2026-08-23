@@ -229,8 +229,7 @@ public sealed partial class VTubeStudio : ObservableObject
                 if (!authenticated)
                 {
                     $"{this} Authentication failed! Communication will stop.".Out(ConsoleColor.Red);
-                    await Task.Delay(200, token);
-                    continue;
+                    throw new Exception("Authentication failed!");
                 }
 
                 $"{this} Requesting common events...".Out();
