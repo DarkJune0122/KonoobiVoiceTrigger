@@ -228,8 +228,8 @@ public sealed partial class VTubeStudio : ObservableObject
 
                 if (!authenticated)
                 {
-                    $"{this} Authentication failed! Communication will stop.".Out(ConsoleColor.Red);
-                    throw new Exception("Authentication failed!");
+                    $"{this} Authentication failed! Connection stopped and can be restarted.".Out(ConsoleColor.Red);
+                    break;
                 }
 
                 $"{this} Requesting common events...".Out();
