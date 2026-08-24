@@ -8,7 +8,10 @@
     DataContext="{StaticResource RootViewModel}"
     mc:Ignorable="d"
     d:DesignHeight="128" d:DesignWidth="128">
-    <Grid>
-        <Image x:Name="Renderer" Source="/Resources/kobi-normal.png"/>
+    <Grid x:Name="JumpAnimationAnchor">
+        <Grid x:Name="TwirlAnimationAnchor">
+            <Image x:Name="Renderer" Source="/Resources/Emotes/kobi-blind.png"/>
+            <Image x:Name="AuraRenderer" Opacity="0.5" />
+        </Grid>
     </Grid>
 </UserControl>

@@ -6,6 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
+    xmlns:shader="clr-namespace:VoiceTrigger.Shaders"
     xmlns:c="clr-namespace:VoiceTrigger.Controls"
     xmlns:vts="clr-namespace:VoiceTrigger.VTS"
     xmlns:local="clr-namespace:VoiceTrigger"
@@ -13,6 +14,7 @@
     DataContext="{StaticResource RootViewModel}"
     Background="{ui:ThemeResource ApplicationBackgroundBrush}"
     Closing="Window_HideInstead"
+    PreviewKeyDown="Window_PreviewKeyDown"
     Activated="FluentWindow_Activated"
     Deactivated="FluentWindow_Deactivated"
 
@@ -25,6 +27,7 @@
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="Background" Value="Transparent"/>
         </Style>-->
+        <shader:MonochromeEffect x:Key="MonochromeEffect" />
     </ui:FluentWindow.Resources>
     <StackPanel Orientation="Vertical">
         <!--<ui:Button Visibility="Hidden" Width="0" Height="0" IsDefault="True"/>-->
@@ -317,10 +320,9 @@
                     </StackPanel>
                 </Grid>
             </StackPanel>
-            <c:AvatarControl NormalImage="/Resources/kobi-normal.png"
-                             ActiveImage="/Resources/kobi-active.png"
-                             TriggeredNormalImage="/Resources/ibok-normal.png"
-                             TriggeredActiveImage="/Resources/ibok-active.png"
+            <c:AvatarControl Progress="{Binding Progress, Mode=OneWay}"
+                             FallbackImage="/Resources/Emotes/kobi-blind.png"
+                             MonochromeEffect="{StaticResource MonochromeEffect}"
                              Authenticated="{Binding Source={x:Static vts:VTubeStudio.Instance}, Path=Authenticated, Mode=OneWay}"
                              AvatarFlags="{Binding AvatarFlags, Mode=OneWay}"
                              VerticalAlignment="Top" Grid.Column="1" Width="128" Height="128" Margin="8"/>

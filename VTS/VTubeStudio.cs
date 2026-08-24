@@ -3,8 +3,10 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net.WebSockets;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
+using VoiceTrigger.Extensions;
 using VoiceTrigger.VTS.Events;
 using VoiceTrigger.VTS.Packets;
 using VoiceTrigger.VTS.Requests;
@@ -13,8 +15,9 @@ namespace VoiceTrigger.VTS;
 
 public sealed partial class VTubeStudio : ObservableObject
 {
-    public const int RequestTimeout = 5000;
-    public const ushort DefaultPort = 8001;
+    public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan DefaultAuthTimeout = Timeout.InfiniteTimeSpan;
+    public static readonly TimeSpan DefaultReAuthTimeout = TimeSpan.FromSeconds(15);
 
     public static readonly VTubeStudio Instance = new();
     static readonly string AuthFilePath = Path.Combine(App.LocalAppDataFolder, "auth");
@@ -143,7 +146,7 @@ public sealed partial class VTubeStudio : ObservableObject
                             PluginDeveloper = "Sandcorp, SoG",
                             AuthenticationToken = auth,
                         }
-                    });
+                    }, DefaultReAuthTimeout);
                     if (result.ResolveSuccess(out var response) && response.Data?.Authenticated == true)
                     {
                         authenticated = true;
@@ -186,14 +189,14 @@ public sealed partial class VTubeStudio : ObservableObject
                             PluginDeveloper = "Sandcorp, SoG",
                             PluginIcon = image
                         }
-                    });
+                    }, DefaultAuthTimeout);
                     if (result.ResolveSuccess(out var response) && !string.IsNullOrEmpty(response.Data?.AuthenticationToken))
                     {
                         authenticated = true;
                         string auth = response.Data.AuthenticationToken;
                         try
                         {
-                            Directory.CreateDirectory(Path.GetDirectoryName(AuthFilePath) ?? string.Empty); 
+                            Directory.CreateDirectory(Path.GetDirectoryName(AuthFilePath) ?? string.Empty);
                             await File.WriteAllTextAsync(AuthFilePath, auth);
                             $"{this} New Auth token saved successfully!".Out();
 
@@ -205,7 +208,7 @@ public sealed partial class VTubeStudio : ObservableObject
                                     PluginDeveloper = "Sandcorp, SoG",
                                     AuthenticationToken = auth,
                                 }
-                            });
+                            }, DefaultReAuthTimeout);
                             if (authResult.ResolveSuccess(out var authResponse) && authResponse.Data?.Authenticated == true)
                             {
                                 authenticated = true;
@@ -268,7 +271,7 @@ public sealed partial class VTubeStudio : ObservableObject
                             Subscribe = true,
                             Config = new VTSECModelLoaded(),
                         }
-                    });
+                    }, DefaultRequestTimeout);
                     if (!response.Success)
                     {
                         "Subscription failed! Restarting soon.".Out(); break;
@@ -292,7 +295,7 @@ public sealed partial class VTubeStudio : ObservableObject
                                 OnlyForAction = string.Empty,
                             }
                         }
-                    });
+                    }, DefaultRequestTimeout);
                     if (!response.Success)
                     {
                         "Subscription failed! Restarting soon.".Out(); break;
@@ -300,10 +303,9 @@ public sealed partial class VTubeStudio : ObservableObject
                     $"Subscription successful!".Out();
                 }
                 catch (Exception ex) { ex.Out("Subscription failed! Restarting soon."); break; }
+                $"{this} Requests successful!".Out();
 
-                $"{this} Request successful!".Out();
-
-                $"{this} Authentication is now complete!".Out();
+                $"{this} Authentication is now complete!".Out(ConsoleColor.Green);
                 SetStatus(socket, VTSStatus.Authenticated);
 
                 // Lets user use the socket until any issues happen.
@@ -492,26 +494,42 @@ public sealed partial class VTubeStudio : ObservableObject
         if (graceful) $"{this} Send handler Stopped gracefully.".Out();
     }
 
-    public ValueTask<bool> Request(VTSRequestTemplate request)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask<bool> Request(VTSRequestTemplate request) => Request(request, DefaultRequestTimeout);
+    public ValueTask<bool> Request(VTSRequestTemplate request, TimeSpan timeout)
     {
         if (Status != VTSStatus.Authenticated)
             return ValueTask.FromResult(false);
-        return SystemRequest(request);
-    }
-    async ValueTask<bool> SystemRequest(VTSRequestTemplate request)
-    {
-        return (await SystemRequestInternal(request, static result => VTSRequestResult.FromResult(VTSPackets.DummyResponse))).Success;
+        return SystemRequest(request, timeout);
     }
 
+    /// <summary>
+    /// Allows communication before authenticated.
+    /// </summary>
+    async ValueTask<bool> SystemRequest(VTSRequestTemplate request, TimeSpan timeout)
+    {
+        return (await SystemRequestInternal(request, timeout,
+            static result => VTSRequestResult.FromResult(VTSPackets.DummyResponse))).Success;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<VTSRequestResult<T>> Request<T>(VTSRequestTemplate request) where T : VTSResponseTemplate
+    {
+        return Request<T>(request, DefaultRequestTimeout);
+    }
+    public ValueTask<VTSRequestResult<T>> Request<T>(VTSRequestTemplate request, TimeSpan timeout) where T : VTSResponseTemplate
     {
         if (Status != VTSStatus.Authenticated)
             return ValueTask.FromResult(VTSRequestResult<T>.Failed);
-        return SystemRequest<T>(request);
+        return SystemRequest<T>(request, timeout);
     }
-    ValueTask<VTSRequestResult<T>> SystemRequest<T>(VTSRequestTemplate request) where T : VTSResponseTemplate
+
+    /// <summary>
+    /// Allows communication before authenticated.
+    /// </summary>
+    ValueTask<VTSRequestResult<T>> SystemRequest<T>(VTSRequestTemplate request, TimeSpan timeout) where T : VTSResponseTemplate
     {
-        return SystemRequestInternal(request, static result =>
+        return SystemRequestInternal(request, timeout, static result =>
         {
             T? packet = JsonSerializer.Deserialize<T>(result.Message.Span, VTSPackets.JsonOptions);
             if (packet is null) return VTSRequestResult<T>.Failed;
@@ -520,7 +538,7 @@ public sealed partial class VTubeStudio : ObservableObject
     }
 
     delegate VTSRequestResult<T> RequestProcessor<T>(VTSSocket.ReceiveResult result) where T : VTSResponseTemplate;
-    async ValueTask<VTSRequestResult<T>> SystemRequestInternal<T>(VTSRequestTemplate request, RequestProcessor<T> processor)
+    async ValueTask<VTSRequestResult<T>> SystemRequestInternal<T>(VTSRequestTemplate request, TimeSpan timeout, RequestProcessor<T> processor)
         where T : VTSResponseTemplate
     {
         Status.Out("Status: ");
@@ -560,11 +578,12 @@ public sealed partial class VTubeStudio : ObservableObject
 
             // TODO: Add custom timeout support for requests.
             await SendQueue.Writer.WriteAsync(new(requestID, json));
-            int timeout = RequestTimeout;
-            if (typeof(T) == typeof(VTSAuthenticationTokenRequest))
-                timeout = int.MaxValue;
-            using var cancellation = new CancellationTokenSource(timeout);
-            using var registration = cancellation.Token.Register(() => { "Timeout!".Out(ConsoleColor.Yellow); source.TrySetCanceled(); });
+            if (timeout.IsFinite())
+            {
+                using var cancellation = new CancellationTokenSource(timeout);
+                using var registration = cancellation.Token.Register(() => { "Timeout!".Out(ConsoleColor.Yellow); source.TrySetCanceled(); });
+            }
+
             using var result = await source.Task;
             if (!result.Success)
             {

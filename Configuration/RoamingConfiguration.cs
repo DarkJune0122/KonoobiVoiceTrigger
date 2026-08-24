@@ -22,4 +22,6 @@ public sealed class RoamingConfiguration : ConfigurationTemplate
     [JsonInclude] public double NormalUnfreezeDelay { get; set; } = 15;
     [JsonInclude] public bool AllowUnfreezeWhileTriggered { get; set; } = true;
     [JsonInclude] public double TriggeredUnfreezeDelay { get; set; } = 30;
+    [JsonInclude] public double AuraFrameRate { get; set; } = 90;
+    [JsonInclude] public double AuraFrequency { get; set; } = 0.5;
 }

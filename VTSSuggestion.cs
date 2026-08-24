@@ -1,5 +1,11 @@
 ﻿// Author: DarkJune (SoG)
 // TODO: Publish as GitHub blob.
+// Note: Also, in CoreVTSPlugin, all async methods are marked with async,
+//  even though tey jsut execute an existing task.
+//  This creates a new state maching on each method call, which is sub-optimal.
+//  Better will be to jusy return the VTSExtensions.Async<...>(...) task,
+//  and let the call-site await it instead.
+//  Functionally, nothing changes, but it reduces allocations/GC pressure and ThreadPool usage.
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;

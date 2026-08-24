@@ -16,7 +16,6 @@
                 <style:ThemesDictionary Theme="Dark" />
             </ResourceDictionary.MergedDictionaries>
             <local:RootViewModel x:Key="RootViewModel" />
-            <shader:MonochromeEffect x:Key="MonochromeEffect" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

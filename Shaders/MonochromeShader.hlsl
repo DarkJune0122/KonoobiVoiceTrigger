@@ -1,12 +1,5 @@
-// Threshold shader 
-
-// Object Declarations
-
 sampler2D implicitInput : register(s0);
 
-//--------------------------------------------------------------------------------------
-// Pixel Shader
-//--------------------------------------------------------------------------------------
 float4 main(float2 uv : TEXCOORD) : COLOR
 {
     float4 color = tex2D(implicitInput, uv);

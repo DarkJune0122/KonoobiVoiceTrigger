@@ -33,6 +33,14 @@ public partial class MainWindow : FluentWindow
 
     private void Window_HideInstead(object sender, CancelEventArgs e)
     {
+        if (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift)
+         || Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))
+        {
+            // Allow closing if Shift or Ctrl is held down.
+            // TODO: Add a tooltip for this.
+            Application.Current.Shutdown();
+            return;
+        }
         e.Cancel = true;
         ShowInTaskbar = false;
         Hide();
@@ -144,6 +152,19 @@ public partial class MainWindow : FluentWindow
         //    TestBox.ItemsSource = Array.Empty<string>();
         //    TestBox.SelectedItem.Out("Selected: ", ConsoleColor.Yellow);
         //}
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            Keyboard.ClearFocus();
+        }
+        if (e.Key == Key.System && e.SystemKey == Key.F4)
+        {
+            Application.Current.Shutdown();
+            e.Handled = true;
+        }
     }
 
     private void FluentWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)

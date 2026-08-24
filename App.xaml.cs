@@ -20,11 +20,11 @@ public partial class App : Application
     static CancellationTokenSource? SingletonSource;
     static Mutex? SingletonMutex;
 
+    public static readonly string ResourcesFolder = Path.Combine(AppContext.BaseDirectory, "Resources");
     public static readonly string LocalAppDataFolder
         = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sandcorp", "VoiceTrigger");
 
     public static RootViewModel RootViewModel => (RootViewModel)Current.Resources[nameof(VoiceTrigger.RootViewModel)];
-    public static MonochromeEffect MonochromeEffect => (MonochromeEffect)Current.Resources[nameof(MonochromeEffect)];
     public static Color IndicatorKobiColor => (Color)Current.Resources[nameof(IndicatorKobiColor)];
     public static Brush IndicatorKobiBrush => (Brush)Current.Resources[nameof(IndicatorKobiBrush)];
     public static Color IndicatorIBOKColor => (Color)Current.Resources[nameof(IndicatorIBOKColor)];
@@ -36,6 +36,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
         LogService.Initialize();
+        try { Directory.CreateDirectory(ResourcesFolder); } catch { }
+        try { Directory.CreateDirectory(LocalAppDataFolder); } catch { }
 
         SingletonMutex = new(true, MutexName, out bool isNew);
         if (isNew)
