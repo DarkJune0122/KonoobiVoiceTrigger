@@ -29,7 +29,7 @@ public partial class AvatarControl : UserControl
             typeof(AvatarControl), new PropertyMetadata(false));
     public static readonly DependencyProperty AvatarFlagsProperty =
         DependencyProperty.Register(nameof(AvatarFlags), typeof(AvatarFlags),
-            typeof(AvatarControl), new PropertyMetadata(VoiceTrigger.AvatarFlags.Normal));
+            typeof(AvatarControl), new PropertyMetadata(AvatarFlags.Normal));
 
     public ImageSource? NormalImage
     {
@@ -70,6 +70,8 @@ public partial class AvatarControl : UserControl
     protected override void OnInitialized(EventArgs e)
     {
         base.OnInitialized(e);
+        Renderer.Effect = Authenticated ? null : App.MonochromeEffect;
+        Renderer.Source = AvatarFlagsToImageSource(AvatarFlags);
     }
 
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -78,7 +80,7 @@ public partial class AvatarControl : UserControl
         if (e.Property == AuthenticatedProperty)
         {
             // TODO: Enable/Disable effect.
-
+            Renderer.Effect = Authenticated ? null : App.MonochromeEffect;
         }
 
         if (e.Property == NormalImageProperty ||
@@ -88,14 +90,16 @@ public partial class AvatarControl : UserControl
             e.Property == AvatarFlagsProperty)
         {
             // TODO: Animate jump and a sprite change.
-            Renderer.Source = AvatarFlags switch
-            {
-                AvatarFlags.Normal => NormalImage,
-                AvatarFlags.Active => ActiveImage,
-                AvatarFlags.TriggeredNormal => TriggeredNormalImage,
-                AvatarFlags.TriggeredActive => TriggeredActiveImage,
-                _ => NormalImage,
-            };
+            Renderer.Source = AvatarFlagsToImageSource(AvatarFlags);
         }
     }
+
+    ImageSource? AvatarFlagsToImageSource(AvatarFlags flags) => flags switch
+    {
+        AvatarFlags.Normal => NormalImage,
+        AvatarFlags.Active => ActiveImage,
+        AvatarFlags.TriggeredNormal => TriggeredNormalImage,
+        AvatarFlags.TriggeredActive => TriggeredActiveImage,
+        _ => NormalImage,
+    };
 }

@@ -4,17 +4,19 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:style="clr-namespace:VoiceTrigger.Styles"
+    xmlns:shader="clr-namespace:VoiceTrigger.Shaders"
     xmlns:local="clr-namespace:VoiceTrigger"
     StartupUri="Controls/MainWindow.xaml"
     ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>
-            <local:RootViewModel x:Key="RootViewModel" />
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
                 <style:ThemesDictionary Theme="Dark" />
             </ResourceDictionary.MergedDictionaries>
+            <local:RootViewModel x:Key="RootViewModel" />
+            <shader:MonochromeEffect x:Key="MonochromeEffect" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

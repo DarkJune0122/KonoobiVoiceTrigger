@@ -1,6 +1,5 @@
 ﻿// Author: DarkJune (SoG)
 // TODO: Publish as GitHub blob.
-using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -21,6 +20,16 @@ public sealed class ResponseIdentifierAttribute(string name) : Attribute
 }
 
 /// <summary>
+/// Indicates enums that can potentially list 
+/// <see cref="RequestIdentifierAttribute"/>s and <see cref="ResponseIdentifierAttribute"/>s.
+/// </summary>
+/// <remarks>
+/// Introduced as an early-fail system for optimization.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Enum, AllowMultiple = false)]
+public sealed class IdentifierCollectionAttribute() : Attribute;
+
+/// <summary>
 /// Skips checks, related to enum having states with the same values.
 /// </summary>
 /// <remarks>
@@ -30,6 +39,7 @@ public sealed class ResponseIdentifierAttribute(string name) : Attribute
 //public sealed class SkipDeduplication : Attribute;
 
 // Annotated enum.
+[IdentifierCollection]
 public enum TargetEnum : ushort
 {
     [RequestIdentifier("RequestIdentifier1")]
@@ -75,7 +85,7 @@ public sealed class VTSNonAnnotatedEnumException(string message) : VTSException(
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void Throw()
     {
-        throw new VTSNonAnnotatedEnumException($"Provided attribute is not annotated with {nameof(RequestIdentifierAttribute)} or {nameof(ResponseIdentifierAttribute)} attributes! thus, it cannot be read.");
+        throw new VTSNonAnnotatedEnumException($"Provided attribute is not annotated with {nameof(RequestIdentifierAttribute)} or {nameof(ResponseIdentifierAttribute)} attributes! Please annotate all enum members with said attributes.");
     }
 }
 public sealed class VTSIncorrectEnumAnnotationException(string message) : VTSException(message)
@@ -104,6 +114,14 @@ public sealed class VTSIncorrectEnumAnnotationException(string message) : VTSExc
         throw new VTSIncorrectEnumAnnotationException($"Enum ({type.FullName}) contains duplicate values!");
     }
 
+    [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static void ThrowMemberMissingAttributes(FieldInfo info)
+    {
+        throw new VTSIncorrectEnumAnnotationException($"Enum member ({info.Name}) of enum ({info.DeclaringType?.FullName}) is missing required attributes! Please, make sure to annotate all enum members with {nameof(RequestIdentifierAttribute)} and {nameof(ResponseIdentifierAttribute)}s - no exceptions!");
+    }
+
+
 
     //[DoesNotReturn]
     //[MethodImpl(MethodImplOptions.NoInlining)]
@@ -121,7 +139,6 @@ public sealed class VTSIncorrectEnumAnnotationException(string message) : VTSExc
 internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
 {
     const BindingFlags EnumMemberBindingFlags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static;
-    const ulong MaxJumpTableSize = int.MaxValue; // Values beyond are unrealistic.
     enum EnumValueKind : byte
     {
         Byte, Short,
@@ -138,7 +155,8 @@ internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
         public readonly string ResponseID = responseId;
     }
 
-    static readonly bool IsAnnotated;
+    public static bool IsAnnotated { get; }
+
     static readonly EnumValueKind ValueKind;
     static readonly EnumMappingKind MappingKind;
     static readonly Dictionary<T, Identifiers>? Lookup;
@@ -147,15 +165,55 @@ internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
 
     static VTSEnumDescriptor()
     {
-        // Caching once, whenever this class with this specific T enum type is used.
-        // Static constructor execution is thread-safe.
-        // Important! Includes duplicates if they are declared!
-        var values = Enum.GetValues<T>();
-        if (values.Length == 0)
+        // Iteration should allocate less memory than allocating an entire attribute.
+        // Note: Replace with 'GetAttribute' if you care about actual attribute values.
+        if (!typeof(T).CustomAttributes.Any(static a => a.GetType() == typeof(IdentifierCollectionAttribute)))
         {
             IsAnnotated = false;
             return;
         }
+
+        // Caching once, whenever this class with this specific T enum type is used.
+        // Static constructor execution is thread-safe.
+        // Important! Includes duplicates if they are declared!
+        var values = Enum.GetValues<T>();
+        if (values.LongLength == 0)
+        {
+            IsAnnotated = false;
+            return;
+        }
+
+        // Removes any unannotaged members.
+        // Such members can be used for spacing-out enum values.
+        // However! It's not recommended to do, as it will break the jump-table optimization.
+        // Adding a support just in case.
+        var members = typeof(T).GetFields(EnumMemberBindingFlags);
+        long length = values.LongLength;
+        if (values.LongLength != members.LongLength)
+        {
+            // TODO: Throw exception.
+        }
+
+        long count = 0; // Counts as a head, and as a total amount of valid items;
+        for (long i = 0; i < length; i++)
+        {
+            // Removes unannotated entries and compacts remaining together.
+            var member = members[i];
+            if (HasAllRequiredAttributes(member.CustomAttributes))
+            {
+                // Compacts the items.
+                if (i != count)
+                    members[count] = member;
+                count++;
+            }
+            // Don't move the head if the check failed.
+        }
+        // Skipped - the entire array is later released to GC.
+        //for (long i = count + 1; i < length; i++)
+        //{
+        //    // Nulls all other references.
+        //    members[i] = null!;
+        //}
 
         // Since T is unmanaged type - we can safely use SizeOf here.
         // Note: 'enum A : char' - is read here as Short, since this is what System.Char is.
@@ -206,7 +264,7 @@ internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
                     // No need to cache length - it doesn't matter for arrays.
                     // IIRC, array length is cached by a compiler. Not the case for lists.
                     byte last = origin;
-                    for (int i = 1; i < values.Length; i++)
+                    for (long i = 1; i < count; i++)
                     {
                         byte now = Unsafe.As<T, byte>(ref values[i]);
                         int delta = unchecked(now - last);
@@ -220,17 +278,19 @@ internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
                             // More on this: https://learn.microsoft.com/en-us/dotnet/api/system.enum.getvalues?view=net-10.0
                             VTSIncorrectEnumAnnotationException.ThrowContainsDuplicateValues<T>();
                         }
+
+                        // Last value is updated before the loop quits.
+                        // This is important for calculating the jump table size more accurately.
+                        last = now;
                         if (delta != 1)
                         {
                             isUniform = false;
                             break;
                         }
-                        last = now;
                     }
 
-                    // Calculates require size after, so we will access last array cells,
-                    //  which are probably still cached from the full array iteration.
-                    requiredJumpTableSize = Unsafe.As<T, byte>(ref values[^1]) - origin;
+                    // Reuses first and last known values without accessing the array again.
+                    requiredJumpTableSize = last - origin + 1;
                 }
                 break;
             case EnumValueKind.Short:
@@ -238,18 +298,19 @@ internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
                     ushort origin = Unsafe.As<T, ushort>(ref values[0]);
 
                     ushort last = origin;
-                    for (int i = 1; i < values.Length; i++)
+                    for (long i = 1; i < count; i++)
                     {
                         ushort now = Unsafe.As<T, ushort>(ref values[i]);
                         int delta = unchecked(now - last);
                         if (delta == 0)
                             VTSIncorrectEnumAnnotationException.ThrowContainsDuplicateValues<T>();
+
+                        last = now;
                         if (delta != 1)
                         {
                             isUniform = false;
                             break;
                         }
-                        last = now;
                     }
 
                     requiredJumpTableSize = last - origin + 1;
@@ -260,21 +321,22 @@ internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
                     uint origin = Unsafe.As<T, uint>(ref values[0]);
 
                     uint last = origin;
-                    for (int i = 1; i < values.Length; i++)
+                    for (long i = 1; i < count; i++)
                     {
                         uint now = Unsafe.As<T, uint>(ref values[i]);
                         uint delta = unchecked(now - last);
                         if (delta == 0)
                             VTSIncorrectEnumAnnotationException.ThrowContainsDuplicateValues<T>();
+
+                        last = now;
                         if (delta != 1)
                         {
                             isUniform = false;
                             break;
                         }
-                        last = now;
                     }
 
-                    requiredJumpTableSize = last - origin + 1;
+                    requiredJumpTableSize = last - origin + 1u;
                 }
                 break;
             case EnumValueKind.Long:
@@ -282,21 +344,28 @@ internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
                     ulong origin = Unsafe.As<T, ulong>(ref values[0]);
 
                     ulong last = origin;
-                    for (int i = 1; i < values.Length; i++)
+                    for (long i = 1; i < count; i++)
                     {
                         ulong now = Unsafe.As<T, ulong>(ref values[i]);
                         ulong delta = unchecked(now - last);
                         if (delta == 0)
                             VTSIncorrectEnumAnnotationException.ThrowContainsDuplicateValues<T>();
+
+                        last = now;
                         if (delta != 1)
                         {
                             isUniform = false;
                             break;
                         }
-                        last = now;
                     }
 
-                    //requiredJumpTableSize = last - origin + 1;
+                    ulong requirement = last - origin + 1uL;
+                    // Values above cannot be mapped to an array jump-table.
+                    if (requirement > long.MaxValue)
+                    {
+                        isUniform = false;
+                    }
+                    requiredJumpTableSize = (long)requirement;
                 }
                 break;
             default: ThrowSwitchException(ValueKind); return;
@@ -305,20 +374,73 @@ internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
         // When we are here, we know:
         // 1. There is no duplicates.
         // 2. Overall
-        var members = typeof(T).GetFields(EnumMemberBindingFlags);
         if (isUniform)
         {
             MappingKind = EnumMappingKind.Uniform;
-            //for (int i = 0; i < length; i++)
-            //{
+            for (long i = 0; i < count; i++)
+            {
+                var member = members[i];
+                if (HasAllRequiredAttributes(member.CustomAttributes))
+                {
 
-            //}
+                }
+                else
+                {
+                    VTSIncorrectEnumAnnotationException.ThrowMemberMissingAttributes(member);
+                }
+            }
         }
         else
         {
             MappingKind = EnumMappingKind.Lookup;
 
         }
+
+        // Simplifications:
+        static bool HasAllRequiredAttributes(IEnumerable<CustomAttributeData> attributes)
+        {
+            MissingRequirements requirements = MissingRequirements.Both;
+            foreach (var attribute in attributes)
+            {
+                var type = attribute.GetType();
+                switch (requirements)
+                {
+                    case MissingRequirements.Both:
+                        if (type == typeof(RequestIdentifierAttribute))
+                        {
+                            requirements &= ~MissingRequirements.Request;
+                        }
+                        else if (type == typeof(ResponseIdentifierAttribute))
+                        {
+                            requirements &= ~MissingRequirements.Response;
+                        }
+                        break;
+                    case MissingRequirements.Request:
+                        if (type == typeof(RequestIdentifierAttribute))
+                        {
+                            return true;
+                        }
+                        break;
+                    case MissingRequirements.Response:
+                        if (type == typeof(ResponseIdentifierAttribute))
+                        {
+                            return true;
+                        }
+                        break;
+                    case MissingRequirements.None:
+                        return true;
+                }
+            }
+            return requirements == MissingRequirements.None;
+        }
+    }
+
+    enum MissingRequirements : byte
+    {
+        None,
+        Request,
+        Response,
+        Both,
     }
 
     // Returns EnumValueKind for usage in a switch expression.

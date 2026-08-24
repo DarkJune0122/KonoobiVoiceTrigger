@@ -53,6 +53,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.HLSL.CSharpVB" Version="1.0.2" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <!--<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />-->
@@ -64,11 +65,11 @@
     <Resource Include="icon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
+    <PixelShader Include="Shaders\MonochromeShader.hlsl" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Properties\PublishProfiles\" />
-    <Folder Include="Shaders\" />
     <Folder Include="Styles\" />
   </ItemGroup>
 

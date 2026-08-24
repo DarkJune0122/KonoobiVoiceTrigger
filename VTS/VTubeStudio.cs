@@ -95,6 +95,7 @@ public sealed partial class VTubeStudio : ObservableObject
 
     async void Connect(VTSSocket socket)
     {
+        // TODO fix issues - check logs or wait for 20s before approving authentuication request.
         $"{this} {nameof(VTSSocket)} started.".Out();
         SetStatus(socket, VTSStatus.Pending);
         CancellationToken token = socket.Token;

@@ -1,8 +1,10 @@
 ﻿using System.Drawing;
 using System.IO;
 using System.IO.Pipes;
+using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using VoiceTrigger.Services;
+using VoiceTrigger.Shaders;
 using VoiceTrigger.VTS;
 
 namespace VoiceTrigger;
@@ -22,6 +24,7 @@ public partial class App : Application
         = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sandcorp", "VoiceTrigger");
 
     public static RootViewModel RootViewModel => (RootViewModel)Current.Resources[nameof(VoiceTrigger.RootViewModel)];
+    public static MonochromeEffect MonochromeEffect => (MonochromeEffect)Current.Resources[nameof(MonochromeEffect)];
     public static Color IndicatorKobiColor => (Color)Current.Resources[nameof(IndicatorKobiColor)];
     public static Brush IndicatorKobiBrush => (Brush)Current.Resources[nameof(IndicatorKobiBrush)];
     public static Color IndicatorIBOKColor => (Color)Current.Resources[nameof(IndicatorIBOKColor)];
