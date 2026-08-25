@@ -1,6 +1,18 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Color x:Key="ControlPanelIconColor">#006495</Color>
+    <Color x:Key="ControlPanelIconColor">#FCD003</Color>
     <SolidColorBrush x:Key="ControlPanelIconBrush" Color="{StaticResource ControlPanelIconColor}" />
+    <Color x:Key="SliderThumbIconColor">#FCD003</Color>
+    <SolidColorBrush x:Key="SliderThumbIconBrush" Color="{StaticResource SliderThumbIconColor}" />
+    <Color x:Key="SliderThumbFillColor">#F0F003</Color>
+    <SolidColorBrush x:Key="SliderThumbFillBrush" Color="{StaticResource SliderThumbFillColor}" />
+
+    <Color x:Key="TriggeredControlPanelIconColor">#FC0003</Color>
+    <SolidColorBrush x:Key="TriggeredControlPanelIconBrush" Color="{StaticResource TriggeredControlPanelIconColor}" />
+    <Color x:Key="TriggeredSliderThumbIconColor">#FC0003</Color>
+    <SolidColorBrush x:Key="TriggeredSliderThumbIconBrush" Color="{StaticResource TriggeredSliderThumbIconColor}" />
+    <Color x:Key="TriggeredSliderThumbFillColor">#F00003</Color>
+    <SolidColorBrush x:Key="TriggeredSliderThumbFillBrush" Color="{StaticResource TriggeredSliderThumbFillColor}" />
+    
     <Color x:Key="StyledTextColor">#F0F0F0</Color>
     <SolidColorBrush x:Key="StyledTextBrush" Color="{StaticResource StyledTextColor}" />
 

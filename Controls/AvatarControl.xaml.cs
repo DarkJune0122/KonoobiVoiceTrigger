@@ -1,9 +1,9 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using VoiceTrigger.Services;
 using VoiceTrigger.Shaders;
@@ -11,49 +11,24 @@ using VoiceTrigger.VTS.Packets;
 
 namespace VoiceTrigger.Controls;
 
-public sealed class AvatarSettings
+public sealed class JumpEasingFunction : EasingFunctionBase
 {
-    public struct Option
+    protected override Freezable CreateInstanceCore() => new JumpEasingFunction();
+    protected override double EaseInCore(double normalizedTime)
     {
-        [JsonInclude] public double ActivationPercent;
-        [JsonInclude] public string FileName;
-        [JsonInclude] public string AuraFileName;
-        [JsonIgnore] public ImageSource? ImageSource;
-        [JsonIgnore] public ImageSource? AuraImageSource;
-
-        public static Option MakeFallback(ImageSource? fallback) => new Option
-        {
-            ActivationPercent = 0.0,
-            FileName = string.Empty,
-            AuraFileName = string.Empty,
-            ImageSource = fallback,
-            AuraImageSource = null
-        };
+        return 4 * normalizedTime * (1 - normalizedTime);
     }
+}
 
-    [JsonInclude] public long Version = 1;
-    [JsonInclude] public Option[]? NormalStates;
-    [JsonInclude] public Option[]? ActiveStates;
-    [JsonInclude] public Option[]? TriggeredNormalStates;
-    [JsonInclude] public Option[]? TriggeredActiveStates;
-
-    public static readonly AvatarSettings Default = new()
+public sealed class TwirlEasingFunction : EasingFunctionBase
+{
+    public double TotalCircles { get; set; } = 3;
+    protected override Freezable CreateInstanceCore() => new TwirlEasingFunction();
+    protected override double EaseInCore(double normalizedTime)
     {
-        NormalStates = [
-            new() { ActivationPercent = 0.0, FileName = "kocalm.png" }
-        ],
-        ActiveStates = [
-            new() { ActivationPercent = 0.0, FileName = "koyap.png" },
-            new() { ActivationPercent = 0.35, FileName = "kotalk.png" },
-            new() { ActivationPercent = 0.74, FileName = "komald.png" }
-        ],
-        TriggeredNormalStates = [
-            new() { ActivationPercent = 0.0, FileName = "imad.png" }
-        ],
-        TriggeredActiveStates = [
-            new() { ActivationPercent = 0.0, FileName = "imald.png", AuraFileName = "imald-aura.png" }
-        ]
-    };
+        return Math.Cos(normalizedTime * Math.PI * 0.5)
+             * Math.Cos(TotalCircles * normalizedTime * Math.PI * 2);
+    }
 }
 
 /// <summary>
@@ -246,6 +221,13 @@ public partial class AvatarControl : UserControl
         {
             Renderer.Effect = Authenticated ? null : MonochromeEffect;
             AuraRenderer.Effect = Authenticated ? null : MonochromeEffect;
+            if (e.Property == AuthenticatedProperty)
+            {
+                if (!Authenticated)
+                    Twirl();
+                else
+                    Jump();
+            }
         }
 
         if (e.Property == FallbackImageProperty)
@@ -260,14 +242,56 @@ public partial class AvatarControl : UserControl
             e.Property == FallbackImageProperty ||
             e.Property == AvatarFlagsProperty)
         {
-            // TODO: Animate jump and a sprite change.
+            if (e.Property == AvatarFlagsProperty)
+            {
+                if (AvatarFlags.IsActive())
+                    Jump();
+            }
             SetAvatarOption(EvaluateImageSource(Settings, AvatarFlags, Progress, FallbackImage));
         }
     }
 
+    void Jump()
+    {
+        if (!IsVisible) return;
+        JumpTransform.BeginAnimation(TranslateTransform.YProperty, null);
+
+        DoubleAnimation animation = new()
+        {
+            From = 0d,
+            To = 1.25d,
+            Duration = TimeSpan.FromSeconds(0.125),
+            EasingFunction = new JumpEasingFunction(),
+            AutoReverse = true,
+        };
+
+        JumpTransform.BeginAnimation(TranslateTransform.YProperty, animation);
+    }
+
+    void Twirl()
+    {
+        if (!IsVisible) return;
+        TwirlTransform.BeginAnimation(TranslateTransform.XProperty, null);
+
+        DoubleAnimation animation = new()
+        {
+            From = 0d,
+            To = 1d,
+            Duration = TimeSpan.FromSeconds(0.2),
+            EasingFunction = new TwirlEasingFunction() { TotalCircles = 3.6 },
+            AutoReverse = true,
+        };
+
+        TwirlTransform.BeginAnimation(TranslateTransform.XProperty, animation);
+    }
+
     void SetAvatarOption(AvatarSettings.Option option)
     {
-        Renderer.Source = option.ImageSource;
+        if (Renderer.Source != option.ImageSource)
+        {
+            Renderer.Source = option.ImageSource;
+            if (AvatarFlags.IsActive()) Jump();
+        }
         AuraRenderer.Source = option.AuraImageSource;
         AuraRenderer.Visibility = option.AuraImageSource is null
             ? Visibility.Hidden : Visibility.Visible;

@@ -8,8 +8,14 @@
     DataContext="{StaticResource RootViewModel}"
     mc:Ignorable="d"
     d:DesignHeight="128" d:DesignWidth="128">
-    <Grid x:Name="JumpAnimationAnchor">
-        <Grid x:Name="TwirlAnimationAnchor">
+    <Grid>
+        <Grid.RenderTransform>
+            <TranslateTransform x:Name="JumpTransform" />
+        </Grid.RenderTransform>
+        <Grid>
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="TwirlTransform" />
+            </Grid.RenderTransform>
             <Image x:Name="Renderer" Source="/Resources/Emotes/kobi-blind.png"/>
             <Image x:Name="AuraRenderer" Opacity="0.5" />
         </Grid>

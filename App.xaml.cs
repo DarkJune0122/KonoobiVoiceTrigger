@@ -1,10 +1,8 @@
 ﻿using System.Drawing;
 using System.IO;
 using System.IO.Pipes;
-using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using VoiceTrigger.Services;
-using VoiceTrigger.Shaders;
 using VoiceTrigger.VTS;
 
 namespace VoiceTrigger;
@@ -35,22 +33,20 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        LogService.Initialize();
         try { Directory.CreateDirectory(ResourcesFolder); } catch { }
         try { Directory.CreateDirectory(LocalAppDataFolder); } catch { }
 
         SingletonMutex = new(true, MutexName, out bool isNew);
-        if (isNew)
-        {
-            SingletonSource = new();
-            _ = StartServerPipeAsync(SingletonSource.Token);
-        }
-        else
+        if (!isNew)
         {
             SignalSingleton();
             Shutdown();
             return;
         }
+
+        LogService.Initialize();
+        SingletonSource = new();
+        _ = StartServerPipeAsync(SingletonSource.Token);
 
         ConfigurationService.Initialize();
         VTSRestartTimer.Tick += MakeRestartAttempt;
@@ -86,7 +82,11 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            ex.Out("Failed to signal an existing singleton!");
+            try
+            {
+                ex.Out("Failed to signal an existing singleton!");
+            }
+            catch { }
         }
     }
 

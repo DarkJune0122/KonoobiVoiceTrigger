@@ -20,14 +20,224 @@
 
     ExtendsContentIntoTitleBar="True"
     ResizeMode="NoResize"
-    Title="MainWindow" MinHeight="430" Height="430" MinWidth="900" Width="900">
+    Title="MainWindow" MinHeight="404" Height="404" MinWidth="900" Width="900">
     <ui:FluentWindow.Resources>
-        <!--<Style x:Key="TitleButtonStyle" TargetType="ui:Button">
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Background" Value="Transparent"/>
-        </Style>-->
         <shader:MonochromeEffect x:Key="MonochromeEffect" />
+        <Style x:Key="CustomSliderStyle" TargetType="{x:Type Slider}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Slider}">
+                        <Grid>
+                            <Border x:Name="TrackBackground"
+                                    Height="6"
+                                    CornerRadius="3"
+                                    Background="Transparent"
+                                    VerticalAlignment="Center"/>
+
+                            <Border x:Name="TrackFill"
+                                    Height="6"
+                                    CornerRadius="3"
+                                    Background="Transparent"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Width="0"/>
+
+                            <Track x:Name="PART_Track"
+                                   VerticalAlignment="Center"
+                                   IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
+                                <Track.Thumb>
+                                    <Thumb x:Name="PART_Thumb"
+                                           Width="18"
+                                           Height="16"
+                                           Background="Transparent"
+                                           BorderBrush="Transparent"
+                                           BorderThickness="0">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Grid>
+                                                    <Path x:Name="TriangleFill"
+                                                          Data="M 0,0 L 20,0 L 10,14 Z"
+                                                          StrokeThickness="2"
+                                                          Stretch="Fill"
+                                                          StrokeLineJoin="Round">
+                                                        <Path.Style>
+                                                            <Style TargetType="{x:Type Path}">
+                                                                <Setter Property="Fill"
+                                                                        Value="{DynamicResource SliderThumbFillBrush}" />
+                                                                <Setter Property="Stroke"
+                                                                        Value="{DynamicResource SliderThumbIconBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsTriggered}"
+                                                                                 Value="True">
+                                                                        <Setter Property="Fill"
+                                                                                Value="{DynamicResource TriggeredSliderThumbFillBrush}" />
+                                                                        <Setter Property="Stroke"
+                                                                                Value="{DynamicResource TriggeredSliderThumbIconBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Path.Style>
+                                                    </Path>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CustomUpsideDownSliderStyle" TargetType="{x:Type Slider}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Slider}">
+                        <Grid>
+                            <Border x:Name="TrackBackground"
+                                    Height="6"
+                                    CornerRadius="3"
+                                    Background="Transparent"
+                                    VerticalAlignment="Center"/>
+
+                            <Border x:Name="TrackFill"
+                                    Height="6"
+                                    CornerRadius="3"
+                                    Background="Transparent"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Width="0"/>
+
+                            <Track x:Name="PART_Track"
+                                   VerticalAlignment="Center"
+                                   IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
+                                <Track.Thumb>
+                                    <Thumb x:Name="PART_Thumb"
+                                           Width="18"
+                                           Height="16"
+                                           Background="Transparent"
+                                           BorderBrush="Transparent"
+                                           BorderThickness="0">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Grid>
+                                                    <Path x:Name="TriangleFill"
+                                                          Data="M 0,0 L 20,0 L 10,14 Z"
+                                                          StrokeThickness="2"
+                                                          Stretch="Fill"
+                                                          StrokeLineJoin="Round"
+                                                          RenderTransformOrigin="0.5,0.5">
+                                                        <Path.RenderTransform>
+                                                            <ScaleTransform ScaleY="-1"/>
+                                                        </Path.RenderTransform>
+                                                        <Path.Style>
+                                                            <Style TargetType="{x:Type Path}">
+                                                                <Setter Property="Fill"
+                                                                        Value="{DynamicResource SliderThumbFillBrush}" />
+                                                                <Setter Property="Stroke"
+                                                                        Value="{DynamicResource SliderThumbIconBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsTriggered}"
+                                                                                 Value="True">
+                                                                        <Setter Property="Fill"
+                                                                                Value="{DynamicResource TriggeredSliderThumbFillBrush}" />
+                                                                        <Setter Property="Stroke"
+                                                                                Value="{DynamicResource TriggeredSliderThumbIconBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Path.Style>
+                                                    </Path>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CustomDiamondSliderStyle" TargetType="{x:Type Slider}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Slider}">
+                        <Grid>
+                            <Border x:Name="TrackBackground"
+                                    Height="6"
+                                    CornerRadius="3"
+                                    Background="{DynamicResource ProgressBarBorderBrush}"
+                                    VerticalAlignment="Center"/>
+
+                            <Border x:Name="TrackFill"
+                                    Height="6"
+                                    CornerRadius="3"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Width="0">
+                                <Border.Style>
+                                    <Style TargetType="{x:Type Border}">
+                                        <Setter Property="Background"
+                                                Value="{DynamicResource SliderThumbIconBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsTriggered}"
+                                                         Value="True">
+                                                <Setter Property="Background"
+                                                        Value="{DynamicResource TriggeredSliderThumbIconBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+
+                            <Track x:Name="PART_Track"
+                                   VerticalAlignment="Center"
+                                   IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
+                                <Track.Thumb>
+                                    <Thumb x:Name="PART_Thumb"
+                                           Width="18"
+                                           Height="18"
+                                           Background="Transparent"
+                                           BorderBrush="Transparent"
+                                           BorderThickness="0">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Grid>
+                                                    <Path x:Name="TriangleFill"
+                                                          Data="M 9,0 L 18,9 L 9,18 L 0,9 Z"
+                                                          StrokeThickness="2"
+                                                          Stretch="Fill"
+                                                          StrokeLineJoin="Round">
+                                                        <Path.Style>
+                                                            <Style TargetType="{x:Type Path}">
+                                                                <Setter Property="Fill"
+                                                                        Value="{DynamicResource SliderThumbFillBrush}" />
+                                                                <Setter Property="Stroke"
+                                                                        Value="{DynamicResource SliderThumbIconBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsTriggered}"
+                                                                                 Value="True">
+                                                                        <Setter Property="Fill"
+                                                                                Value="{DynamicResource TriggeredSliderThumbFillBrush}" />
+                                                                        <Setter Property="Stroke"
+                                                                                Value="{DynamicResource TriggeredSliderThumbIconBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Path.Style>
+                                                    </Path>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </ui:FluentWindow.Resources>
     <StackPanel Orientation="Vertical">
         <!--<ui:Button Visibility="Hidden" Width="0" Height="0" IsDefault="True"/>-->
@@ -43,50 +253,71 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="5" />
                     </Grid.ColumnDefinitions>
                     <ui:ImageIcon Grid.Column="0" Source="pack://application:,,,/icon.ico" Margin="4" IsHitTestVisible="False" />
                     <ui:TextBlock Grid.Column="1" Text="Voice Trigger" VerticalAlignment="Center" IsHitTestVisible="False"
                                   HorizontalAlignment="Center" Margin="4,0,0,0" FontSize="20" FontFamily="Segoe UI" />
                     <!--Spacing-->
-                    <Rectangle Grid.Column="3" Fill="Red" MinWidth="8" MinHeight="8"
+                    <StackPanel Grid.Column="3" Orientation="Horizontal">
+                        <Rectangle Fill="Cyan" MinWidth="8" MinHeight="8"
+                               Visibility="{Binding IsFrozen, Converter={x:Static local:BoolToVisibilityConverter.Instance}}"/>
+                        <Rectangle Fill="Red" MinWidth="8" MinHeight="8"
                                Visibility="{Binding IsTriggered, Converter={x:Static local:BoolToVisibilityConverter.Instance}}"/>
-                    <Rectangle Grid.Column="4" Fill="Yellow" MinWidth="8" MinHeight="8"
+                        <Rectangle Fill="Yellow" MinWidth="8" MinHeight="8"
                                Visibility="{Binding IsActivated, Converter={x:Static local:BoolToVisibilityConverter.Instance}}"/>
-                    <StackPanel Grid.Column="5" Orientation="Horizontal">
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal">
                         <ui:Button Command="{Binding UpdateStatesCommand}"
-                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                                   ToolTip="Syncs current model state with VTubeStudio.&#x0a;Usually never needed."
+                                   ToolTipService.InitialShowDelay="0"
+                                   ToolTipService.BetweenShowDelay="0"
+                                   BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                             <ui:Button.Icon>
                                 <ui:SymbolIcon Symbol="ArrowClockwise24" Filled="True" />
                             </ui:Button.Icon>
                         </ui:Button>
                         <ui:Button Command="{Binding TriggerVTSHotkeyCommand}"
-                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                                   ToolTip="Toggles expression, if selected hotkey controls the same expression as a selected one."
+                                   ToolTipService.InitialShowDelay="0"
+                                   ToolTipService.BetweenShowDelay="0"
+                                   BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                             <ui:Button.Icon>
                                 <ui:SymbolIcon Symbol="Color24" Filled="True" />
                             </ui:Button.Icon>
                         </ui:Button>
                         <ui:Button Click="Title_Settings" 
-                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                                   ToolTip="Opens Windows audio settings.&#x0a;There were issues with 44.1khz microphone input not being read by the app.&#x0a;Try changing your microphone recording quality and see if it changes.&#x0a;&#x0a;Additionally - program only records microphone while any other app uses it (think: OBS, or Windows audio settings window)&#x0a;If you want to test your microphone - click this button, and navigate to the microphones section to temporary enable your mic input while settings window is open."
+                                   ToolTipService.InitialShowDelay="0"
+                                   ToolTipService.BetweenShowDelay="0"
+                                   BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                             <ui:Button.Icon>
                                 <ui:SymbolIcon Symbol="Settings24" Filled="True" />
                             </ui:Button.Icon>
                         </ui:Button>
                         <ui:Button Command="{Binding ToggleCaptureCommand}"
-                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                                   ToolTip="Toggles microphone input.&#x0a;There is no global hotkey to do so."
+                                   ToolTipService.InitialShowDelay="0"
+                                   ToolTipService.BetweenShowDelay="0"
+                                   BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                             <ui:Button.Icon>
                                 <ui:SymbolIcon Symbol="{Binding AudioCaptureEnabled, Converter={x:Static local:StateToMicrophoneIconConcerter.Instance}}" Filled="True" />
                             </ui:Button.Icon>
                         </ui:Button>
                         <ui:Button Click="Title_Theme"
+                               ToolTip="FLASHBANG!&#x0a;Changes theme!"
+                               ToolTipService.InitialShowDelay="0"
+                               ToolTipService.BetweenShowDelay="0"
                                BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                             <ui:Button.Icon>
                                 <ui:SymbolIcon Symbol="DarkTheme24" Filled="True" />
                             </ui:Button.Icon>
                         </ui:Button>
                         <ui:Button Click="Title_Close"
-                               BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
+                                   ToolTip="Hides the window.&#x0a;To close the app instead - hold Shift or Ctrl while closing.&#x0a;Alt+F4 also works."
+                                   ToolTipService.InitialShowDelay="0"
+                                   ToolTipService.BetweenShowDelay="0"
+                                   BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                             <ui:Button.Icon>
                                 <ui:SymbolIcon Symbol="Dismiss24" Filled="True" />
                             </ui:Button.Icon>
@@ -105,6 +336,9 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <ComboBox Grid.Column="0" MinWidth="240" Margin="0,0,6,0"
+                      ToolTip="Microphone to listen to."
+                      ToolTipService.InitialShowDelay="0"
+                      ToolTipService.BetweenShowDelay="0"
                       ItemsSource="{Binding AudioCaptureDevices, Mode=OneWay}"
                       SelectedItem="{Binding SelectedAudioCaptureDevice, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
@@ -114,6 +348,9 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
             <ComboBox Grid.Column="1" MinWidth="90"
+                      ToolTip="Amount of updates per second. Higher values give better experience."
+                      ToolTipService.InitialShowDelay="0"
+                      ToolTipService.BetweenShowDelay="0"
                       ItemsSource="{Binding SamplingRates, Mode=OneWay}"
                       SelectedItem="{Binding SelectedSamplingRate, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
@@ -133,6 +370,9 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>-->
             <ComboBox Grid.Column="3" MinWidth="360"
+                      ToolTip="Model expression to track and toggle."
+                      ToolTipService.InitialShowDelay="0"
+                      ToolTipService.BetweenShowDelay="0"
                       ItemsSource="{Binding Expressions, Mode=OneWay}"
                       SelectedItem="{Binding SelectedExpression, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
@@ -149,43 +389,38 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Vertical">
+            <StackPanel Margin="0,8,0,0" Orientation="Vertical">
                 <!--Top slider-->
                 <Grid Margin="0,0,0,2">
                     <Slider Orientation="Horizontal" Background="Transparent"
+                            ToolTip="Loudness threshold (in %)&#x0a;Slider goes from 0% to 100%"
+                            ToolTipService.InitialShowDelay="0"
+                            ToolTipService.BetweenShowDelay="0"
                             Minimum="0" Maximum="1" SmallChange="0.001"
                             IsSnapToTickEnabled="False"
+                            Style="{StaticResource CustomSliderStyle}"
+                            Foreground="{DynamicResource ControlPanelIconBrush}"
                             Value="{Binding ActivationThreshold}"
-                            BorderThickness="10">
-                        <!--<Slider.Template>
-                            <ControlTemplate TargetType="Slider">
-                                <Track x:Name="PART_Track">
-                                    <Track.Thumb>
-                                        <Thumb Width="16" Height="16">
-                                            <Thumb.Template>
-                                                <ControlTemplate TargetType="Thumb">
-                                                    <Image Source="/Resources/UI/arrow-down.png" Stretch="Fill"/>
-                                                </ControlTemplate>
-                                            </Thumb.Template>
-                                        </Thumb>
-                                    </Track.Thumb>
-                                </Track>
-                            </ControlTemplate>
-                        </Slider.Template>-->
+                            BorderThickness="10" TickFrequency="0.001">
                     </Slider>
                 </Grid>
                 <Grid Margin="0,0,0,2">
-                    <ProgressBar Orientation="Horizontal" Minimum="0.0" Maximum="1.0"
-                                 Background="Transparent" Foreground="Lime"
+                    <ProgressBar Orientation="Horizontal" Minimum="0.0" Maximum="1.0" Margin="8,0,8,0"
+                                 Background="Transparent" Foreground="{Binding VoiceMeterBrush, Mode=OneWay}"
                                  Value="{Binding AudioVolume, FallbackValue=0.2}"
                                  Height="12" />
                 </Grid>
                 <Grid Margin="0,0,0,2">
                     <Slider Orientation="Horizontal" Background="Transparent"
+                            ToolTip="Progress Jump!&#x0a;How much progress (in %) to add if you are suddenly loud while Kobi.&#x0a;Slider goes from 0% to 100%"
+                            ToolTipService.InitialShowDelay="0"
+                            ToolTipService.BetweenShowDelay="0"
                             Minimum="0" Maximum="1" SmallChange="0.001"
                             IsSnapToTickEnabled="False"
+                            Style="{StaticResource CustomSliderStyle}"
+                            Foreground="{DynamicResource ControlPanelIconBrush}"
                             Value="{Binding NormalActivationJump}"
-                            BorderThickness="10">
+                            BorderThickness="10" TickFrequency="0.001">
                         <!--<Slider.Template>
                             <ControlTemplate TargetType="Slider">
                                 <Track x:Name="PART_Track">
@@ -204,8 +439,8 @@
                     </Slider>
                 </Grid>
                 <Grid Margin="0,0,0,2">
-                    <ProgressBar Orientation="Horizontal" Minimum="0.0" Maximum="1.0"
-                                 Background="Transparent" Foreground="Yellow"
+                    <ProgressBar Orientation="Horizontal" Minimum="0.0" Maximum="1.0" Margin="8,0,8,0"
+                                 Background="Transparent" Foreground="{Binding ProgressBrush, Mode=OneWay}"
                                  Value="{Binding Progress, FallbackValue=0.2}" 
                                  Height="12">
                         <!--<ProgressBar.Template>
@@ -221,10 +456,20 @@
                 </Grid>
                 <Grid Margin="0,0,0,2">
                     <Slider Orientation="Horizontal" Background="Transparent"
+                            ToolTip="Resistance Jump!&#x0a;How much progress (in %) to add if you are suddenly loud while IBOK.&#x0a;Slider goes from 0% to 100%"
+                            ToolTipService.InitialShowDelay="0"
+                            ToolTipService.BetweenShowDelay="0"
                             Minimum="0" Maximum="1" SmallChange="0.001"
                             IsSnapToTickEnabled="False"
+                            Style="{StaticResource CustomUpsideDownSliderStyle}"
+                            Foreground="{DynamicResource ControlPanelIconBrush}"
                             Value="{Binding TriggeredActivationJump}"
-                            BorderThickness="10">
+                            BorderThickness="10" TickFrequency="0.001">
+                        <Slider.Resources>
+                            <Style TargetType="Thumb">
+                                <Setter Property="Foreground" Value="{DynamicResource ControlPanelIconBrush}" />
+                            </Style>
+                        </Slider.Resources>
                         <!--<Slider.Template>
                             <ControlTemplate TargetType="Slider">
                                 <Track x:Name="PART_Track">
@@ -252,9 +497,12 @@
                                   Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
                     <Slider Grid.Column="1" Margin="8,0,8,0" Orientation="Horizontal" Background="Transparent" VerticalAlignment="Center"
                             Minimum="0" Maximum="10" SmallChange="0.001"
+                            ToolTip="How fast you will progress at becoming IBOK.&#x0a;Same as reducing 'Time until IBOK'."
+                            ToolTipService.InitialShowDelay="0"
+                            ToolTipService.BetweenShowDelay="0"
                             IsSnapToTickEnabled="False"
-                            Value="{Binding ActivationPower, Mode=TwoWay}"
-                            BorderThickness="10"/>
+                            Style="{StaticResource CustomDiamondSliderStyle}"
+                            Value="{Binding ActivationPower, Mode=TwoWay}" TickFrequency="0.001"/>
                     <ui:TextBlock Grid.Column="2" Margin="6,0,0,0" FontSize="14"
                                   Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"
                                   Text="{Binding ActivationPower, StringFormat={}{0:0.00}}"/>
@@ -265,7 +513,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="2*"/>
                     </Grid.ColumnDefinitions>
-                    <Rectangle Grid.ColumnSpan="3" Fill="LightGray" Height="0.5" VerticalAlignment="Top"/>
+                    <!--<Rectangle Grid.ColumnSpan="3" Fill="LightGray" Height="1" VerticalAlignment="Top"/>-->
                     <StackPanel Grid.Column="0" Orientation="Vertical">
                         <ui:TextBlock Margin="0,4,0,6" Text="Konoobi state" FontSize="18" TextAlignment="Center"
                                       HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
@@ -275,15 +523,13 @@
                                 <ui:TextBlock Text="Time until IBOK: " FontSize="14" VerticalAlignment="Center"
                                               Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                                 <ui:TextBox Margin="10,0,0,0" Text="{Binding NormalActivationDuration}"
+                                            ToolTip="For how long you have to be loud to become IBOK"
+                                            ToolTipService.InitialShowDelay="0"
+                                            ToolTipService.BetweenShowDelay="0"
                                             TextAlignment="Right" Width="96" BorderThickness="0" Height="36" />
                                 <ui:TextBlock Margin="2,0,0,0" Text="s" FontSize="14" VerticalAlignment="Center"
                                               Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
                             </StackPanel>
-                            <!--<StackPanel Orientation="Horizontal">
-                                <ui:TextBlock Text="Jump power: " FontSize="14" VerticalAlignment="Center"
-                                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
-                                <ui:TextBox Text="1" TextAlignment="Right" Width="48" BorderThickness="0" Height="36" />
-                            </StackPanel>-->
                         </StackPanel>
                     </StackPanel>
                     <Rectangle Margin="4,4,4,4" Width="1" Grid.Column="1" Fill="DarkGray"/>
@@ -295,7 +541,11 @@
                             <StackPanel Margin="0,0,32,0" Orientation="Horizontal">
                                 <ui:TextBlock Text="Time until Kobi: " FontSize="14" VerticalAlignment="Center"
                                               Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
-                                <ui:TextBox Margin="10,0,0,0" Text="{Binding TriggeredReleaseDuration}" TextAlignment="Right" Width="96" BorderThickness="0" Height="36" />
+                                <ui:TextBox Margin="10,0,0,0" Text="{Binding TriggeredReleaseDuration}"
+                                            ToolTip="For how long you have to be silent to become Kobi again"
+                                            ToolTipService.InitialShowDelay="0"
+                                            ToolTipService.BetweenShowDelay="0"
+                                            TextAlignment="Right" Width="96" BorderThickness="0" Height="36" />
                                 <ui:TextBlock Margin="2,0,0,0" Text="s" FontSize="14" VerticalAlignment="Center"
                                               Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
                             </StackPanel>
@@ -303,6 +553,9 @@
                                 <ui:TextBlock Text="IBOK resistance: " FontSize="14" VerticalAlignment="Center"
                                               Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                                 <ComboBox ItemsSource="{Binding Resistances}" Width="120"
+                                          ToolTip="How much IBOK will resist you while you are being loud"
+                                          ToolTipService.InitialShowDelay="0"
+                                          ToolTipService.BetweenShowDelay="0"
                                           SelectedItem="{Binding SelectedResistance, Mode=TwoWay}">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate>
@@ -311,16 +564,14 @@
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
                             </StackPanel>
-                            <!--<StackPanel Orientation="Horizontal">
-                                <ui:TextBlock Text="Activation Power: " FontSize="14" VerticalAlignment="Center"
-                                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
-                                <ui:TextBox Text="1" TextAlignment="Right" Width="48" BorderThickness="0" Height="36" />
-                            </StackPanel>-->
                         </StackPanel>
                     </StackPanel>
                 </Grid>
             </StackPanel>
             <c:AvatarControl Progress="{Binding Progress, Mode=OneWay}"
+                             ToolTip="It's you!"
+                             ToolTipService.InitialShowDelay="0"
+                             ToolTipService.BetweenShowDelay="0"
                              FallbackImage="/Resources/Emotes/kobi-blind.png"
                              MonochromeEffect="{StaticResource MonochromeEffect}"
                              Authenticated="{Binding Source={x:Static vts:VTubeStudio.Instance}, Path=Authenticated, Mode=OneWay}"
@@ -328,6 +579,66 @@
                              VerticalAlignment="Top" Grid.Column="1" Width="128" Height="128" Margin="8"/>
         </Grid>
         
+        <!--Freezing options-->
+        <StackPanel Margin="4,0,4,4" Orientation="Horizontal">
+            <StackPanel Margin="0,0,8,0" Orientation="Horizontal">
+                <ui:TextBlock Text="Enable Freezing: " FontSize="14" VerticalAlignment="Center"
+                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                <ui:ToggleSwitch x:Name="FirstToggle"
+                                 IsChecked="{Binding EnableFreezing, Mode=TwoWay}" Padding="0,4,0,0"
+                                 ToolTip="Freezing stops app from switching expression if you switch it manually.&#x0a;When this happens - you will see a cyan indicator."
+                                 ToolTipService.InitialShowDelay="0"
+                                 ToolTipService.BetweenShowDelay="0">
+                    <ui:ToggleSwitch.Style>
+                        <Style TargetType="{x:Type ui:ToggleSwitch}" BasedOn="{StaticResource {x:Type ui:ToggleSwitch}}">
+                            <Setter Property="Background"
+                                    Value="{DynamicResource ControlPanelIconBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsTriggered}"
+                                             Value="True">
+                                    <Setter Property="Background"
+                                            Value="{DynamicResource TriggeredControlPanelIconBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:ToggleSwitch.Style>
+                </ui:ToggleSwitch>
+                <ui:TextBlock Margin="24,0,0,0" Text="Freeze Duration: " FontSize="14" VerticalAlignment="Center"
+                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                <ui:TextBox Margin="6,0,0,0" Text="{Binding FreezeDuration}"
+                            ToolTip="For how long the app should freeze"
+                            ToolTipService.InitialShowDelay="0"
+                            ToolTipService.BetweenShowDelay="0"
+                            IsEnabled="{Binding EnableFreezing}"
+                            TextAlignment="Right" Width="96" BorderThickness="0" Height="36" />
+                <ui:TextBlock Margin="2,0,0,0" Text="s" FontSize="14" VerticalAlignment="Center"
+                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                <ui:TextBlock Margin="24,0,0,0" Text="Unfreeze instantly when manually switching to Kobi: "
+                              FontSize="14" VerticalAlignment="Center"
+                              Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                <ui:ToggleSwitch x:Name="SecondToggle"
+                                 IsChecked="{Binding InstantUnfreezeOnManualNormal, Mode=TwoWay}" Padding="0,4,0,0"
+                                 IsEnabled="{Binding EnableFreezing}"
+                                 ToolTip="Self-explanatory"
+                                 ToolTipService.InitialShowDelay="1"
+                                 ToolTipService.BetweenShowDelay="1">
+                    <ui:ToggleSwitch.Style>
+                        <Style TargetType="{x:Type ui:ToggleSwitch}" BasedOn="{StaticResource {x:Type ui:ToggleSwitch}}">
+                            <Setter Property="Background"
+                                    Value="{DynamicResource ControlPanelIconBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsTriggered}"
+                                             Value="True">
+                                    <Setter Property="Background"
+                                            Value="{DynamicResource TriggeredControlPanelIconBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:ToggleSwitch.Style>
+                </ui:ToggleSwitch>
+            </StackPanel>
+        </StackPanel>
+
         <!--Hotkeys-->
         <Grid Margin="4,0,4,0">
             <Grid.RowDefinitions>
@@ -340,7 +651,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <ui:TextBlock Text="Hotkeys" Margin="0,0,0,4" FontSize="18" Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                <ui:TextBlock Text="Hotkey" Margin="0,4,0,4" FontSize="18" Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
                 <!--Delete all maybe?-->
                 <!--<ui:Button Grid.Column="2">
                     <ui:Button.Icon>
@@ -350,6 +661,9 @@
             </Grid>
             <Rectangle Grid.RowSpan="2" Fill="LightGray" Height="1" VerticalAlignment="Top"/>
             <ComboBox Grid.Row="2" Width="480" HorizontalAlignment="Left" ItemsSource="{Binding Hotkeys}"
+                      ToolTip="Hotkey used to activate current expression"
+                      ToolTipService.InitialShowDelay="0"
+                      ToolTipService.BetweenShowDelay="0"
                       SelectedItem="{Binding SelectedHotkey, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
@@ -384,10 +698,10 @@
         </Grid>
         
         <!--Silly BG, Help-box, Toast-->
-        <Grid Margin="4,8,4,4" Height="52">
+        <!--<Grid Margin="4,8,4,4" Height="52">
             <Rectangle Fill="LightGray" Height="1" VerticalAlignment="Top"/>
             <ui:TextBlock Margin="0,4,0,0" Text="Tips and help will appear here" FontSize="14" Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}" />
-        </Grid>
+        </Grid>-->
 
         <!--Tray icon-->
         <tray:NotifyIcon

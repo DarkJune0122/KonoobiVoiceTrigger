@@ -7,13 +7,14 @@ public static class LogService
 {
     [MemberNotNullWhen(true, nameof(LogStream))]
     [MemberNotNullWhen(true, nameof(LogWriter))]
-    public static bool IsInitialized { get; private set; }
+    public static bool IsInitialized { get => isInitialized; private set => isInitialized = value; }
 
     static readonly string LogDirectory = Path.Combine(ConfigurationService.RoamingDirectory, "Logs");
     static readonly string LogFilePath = Path.Combine(LogDirectory, "now.log");
     static readonly string LogFileBackupFormat = Path.Combine(LogDirectory, "{0}.log");
     static FileStream? LogStream;
     static StreamWriter? LogWriter;
+    static volatile bool isInitialized;
 
     public static void Initialize()
     {

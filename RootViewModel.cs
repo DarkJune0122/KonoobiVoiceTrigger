@@ -2,8 +2,8 @@
 using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
 using System.Diagnostics.CodeAnalysis;
-using System.Drawing;
 using System.Runtime.CompilerServices;
+using System.Windows.Media;
 using System.Windows.Threading;
 using VoiceTrigger.Services;
 using VoiceTrigger.VTS;
@@ -20,6 +20,7 @@ public sealed partial class Model : ObservableObject
 
 // TODO: Serialize states. Move Advanced settings in a separate .cfg file.
 // TODO: Go through the logic and find out - maybe we can make the logic funnier to use? More engaging, etc.
+// TODO: Add support for Warudo as well.
 public sealed partial class RootViewModel : ObservableObject
 {
     const long MinimumJumpSpacingMs = 300;
@@ -33,7 +34,7 @@ public sealed partial class RootViewModel : ObservableObject
     [ObservableProperty] public partial SamplingRate? SelectedSamplingRate { get; set; }
 
     // Hotkeys & Avatar state.
-    [ObservableProperty] public partial ModelHotkey[] Hotkeys { get; set; } = [];
+    [ObservableProperty] public partial ModelHotkey[] Hotkeys { get; set; } = [new()];
     [ObservableProperty] public partial ModelHotkey? SelectedHotkey { get; set; }
     [ObservableProperty] public partial ModelExpression[] Expressions { get; set; } = [];
     [ObservableProperty] public partial ModelExpression? SelectedExpression { get; set; }
@@ -43,13 +44,14 @@ public sealed partial class RootViewModel : ObservableObject
     [ObservableProperty] public partial bool IsActivated { get; set; } = false;
     [ObservableProperty] public partial bool IsTriggered { get; set; } = false;
     [ObservableProperty] public partial AvatarFlags AvatarFlags { get; set; }
+    [ObservableProperty] public partial Brush VoiceMeterBrush { get; set; } = Brushes.Lime;
     [ObservableProperty] public partial Brush ProgressBrush { get; set; } = Brushes.Yellow;
 
     // Trigger controls.
     /// <summary>
     /// Generally, for the entire feature.
     /// </summary>
-    [ObservableProperty] public partial bool EnableFreezing { get; set; } = false; // Debug.
+    [ObservableProperty] public partial bool EnableFreezing { get; set; }
     /// <summary>
     /// Whether system inputs is frozen. Happens when you manually switch the states.
     /// </summary>
@@ -58,15 +60,23 @@ public sealed partial class RootViewModel : ObservableObject
     /// </remarks>
     [ObservableProperty] public partial bool IsFrozen { get; set; }
     /// <summary>
+    /// For how long to freeze after manual state activation. In seconds.
+    /// </summary>
+    [ObservableProperty] public partial double FreezeDuration { get; set; }
+    /// <summary>
+    /// Whether to instantly unfreeze when manually returned to a normal state.
+    /// </summary>
+    [ObservableProperty] public partial bool InstantUnfreezeOnManualNormal { get; set; }
+    /// <summary>
     /// Enables/Disables system unfreezing while Kobi.
     /// </summary>
-    [ObservableProperty] public partial bool AllowUnfreezeWhileNormal { get; set; } = true;
-    [ObservableProperty] public partial double NormalUnfreezeDelay { get; set; } = 15;
+    //[ObservableProperty] public partial bool AllowUnfreezeWhileNormal { get; set; } = true;
+    //[ObservableProperty] public partial double NormalUnfreezeDelay { get; set; } = 15;
     /// <summary>
     /// Enables/Disables system unfreezing while IBOK.
     /// </summary>
-    [ObservableProperty] public partial bool AllowUnfreezeWhileTriggered { get; set; } = false;
-    [ObservableProperty] public partial double TriggeredUnfreezeDelay { get; set; } = 30;
+    //[ObservableProperty] public partial bool AllowUnfreezeWhileTriggered { get; set; } = false;
+    //[ObservableProperty] public partial double TriggeredUnfreezeDelay { get; set; } = 30;
 
     /// <summary>
     /// Audio-meter activation threshold [0.0 - 1.0]
@@ -114,8 +124,9 @@ public sealed partial class RootViewModel : ObservableObject
     readonly DispatcherTimer AudioCaptureTimer = new();
     MMDevice? ActiveAudioCaptureDevice;
     long LastAudioCaptureTick;
-    long FrozenNormalTotalTicks;
-    long FrozenTriggeredTotalTicks;
+    //long FrozenNormalTotalTicks;
+    //long FrozenTriggeredTotalTicks;
+    long TotalFrozenTicks;
     long LastJumpTick;
 
     public RootViewModel()
@@ -127,10 +138,12 @@ public sealed partial class RootViewModel : ObservableObject
         TriggeredActivationJump = ConfigurationService.Roaming.TriggeredActivationJump;
 
         EnableFreezing = ConfigurationService.Roaming.EnableFreezing;
-        AllowUnfreezeWhileNormal = ConfigurationService.Roaming.AllowUnfreezeWhileNormal;
-        NormalUnfreezeDelay = ConfigurationService.Roaming.NormalUnfreezeDelay;
-        AllowUnfreezeWhileTriggered = ConfigurationService.Roaming.AllowUnfreezeWhileTriggered;
-        TriggeredUnfreezeDelay = ConfigurationService.Roaming.TriggeredUnfreezeDelay;
+        FreezeDuration = ConfigurationService.Roaming.FreezeDuration;
+        InstantUnfreezeOnManualNormal = ConfigurationService.Roaming.InstantUnfreezeOnManualNormal;
+        //AllowUnfreezeWhileNormal = ConfigurationService.Roaming.AllowUnfreezeWhileNormal;
+        //NormalUnfreezeDelay = ConfigurationService.Roaming.NormalUnfreezeDelay;
+        //AllowUnfreezeWhileTriggered = ConfigurationService.Roaming.AllowUnfreezeWhileTriggered;
+        //TriggeredUnfreezeDelay = ConfigurationService.Roaming.TriggeredUnfreezeDelay;
 
         var hotkey = ConfigurationService.Roaming.SelectedHotkey;
         if (hotkey is not null)
@@ -204,6 +217,13 @@ public sealed partial class RootViewModel : ObservableObject
         //  Calculate triggered state based on event feedbacks (unless VTS is disabled?)
         //VTubeStudio.Instance.OnAuthenticated //...
         VTubeStudio.Instance.OnAuthenticated += () => _ = UpdateStates();
+        VTubeStudio.Instance.OnUnauthenticated += UnlinkStates;
+    }
+
+    private void UnlinkStates()
+    {
+        IsFrozen = false;
+        TotalFrozenTicks = 0;
     }
 
     private void HandleModelLoaded(VTSModelLoadedEvent e)
@@ -227,25 +247,37 @@ public sealed partial class RootViewModel : ObservableObject
         ConfigurationService.Roaming.EnableFreezing = value;
     }
 
-    partial void OnAllowUnfreezeWhileNormalChanged(bool value)
+    partial void OnFreezeDurationChanged(double value)
     {
-        ConfigurationService.Roaming.AllowUnfreezeWhileNormal = value;
+        ConfigurationService.Roaming.FreezeDuration = value;
     }
 
-    partial void OnNormalUnfreezeDelayChanged(double value)
+    partial void OnInstantUnfreezeOnManualNormalChanged(bool value)
     {
-        ConfigurationService.Roaming.NormalUnfreezeDelay = value;
+        ConfigurationService.Roaming.InstantUnfreezeOnManualNormal = value;
+        if (value && !IsTriggered)
+            IsFrozen = false;
     }
 
-    partial void OnAllowUnfreezeWhileTriggeredChanged(bool value)
-    {
-        ConfigurationService.Roaming.AllowUnfreezeWhileTriggered = value;
-    }
+    //partial void OnAllowUnfreezeWhileNormalChanged(bool value)
+    //{
+    //    ConfigurationService.Roaming.AllowUnfreezeWhileNormal = value;
+    //}
 
-    partial void OnTriggeredUnfreezeDelayChanged(double value)
-    {
-        ConfigurationService.Roaming.TriggeredUnfreezeDelay = value;
-    }
+    //partial void OnNormalUnfreezeDelayChanged(double value)
+    //{
+    //    ConfigurationService.Roaming.NormalUnfreezeDelay = value;
+    //}
+
+    //partial void OnAllowUnfreezeWhileTriggeredChanged(bool value)
+    //{
+    //    ConfigurationService.Roaming.AllowUnfreezeWhileTriggered = value;
+    //}
+
+    //partial void OnTriggeredUnfreezeDelayChanged(double value)
+    //{
+    //    ConfigurationService.Roaming.TriggeredUnfreezeDelay = value;
+    //}
 
     partial void OnSelectedResistanceChanged(TriggeredResistance? value)
     {
@@ -293,8 +325,6 @@ public sealed partial class RootViewModel : ObservableObject
         }
 
         $"Updating hotkeys and expressions...".Out();
-
-        // TODO: Implement.
         try
         {
             {
@@ -410,16 +440,6 @@ public sealed partial class RootViewModel : ObservableObject
     [RelayCommand]
     public async Task TriggerVTSHotkey()
     {
-        // Debug hotkey trigger test: 
-        //await VTubeStudio.Instance.Request(new VTSHotkeyTriggerRequest()
-        //{
-        //    Data = new()
-        //    {
-        //        HotkeyID = "158eb62bdd5d438ca5175516154131dc",
-        //        ItemInstanceID = null,
-        //    },
-        //});
-
         IsTriggered = !IsTriggered;
         if (IsTriggered)
             Progress = 1;
@@ -463,18 +483,21 @@ public sealed partial class RootViewModel : ObservableObject
 
         if (!e.Data.HotkeyTriggeredByAPI)
         {
-            // Used manually triggered the transition.
-            if (EnableFreezing)
-            {
-                FrozenNormalTotalTicks = 0;
-                FrozenTriggeredTotalTicks = 0;
-                IsFrozen = true;
-            }
             IsTriggered = !IsTriggered; // API hotkeys already predict future state.
             if (IsTriggered)
                 Progress = 1;
             else
                 Progress = 0;
+
+            // Used manually triggered the transition.
+            if (EnableFreezing)
+            {
+                TotalFrozenTicks = 0;
+                if (IsTriggered)
+                    IsFrozen = true;
+                else
+                    IsFrozen = !InstantUnfreezeOnManualNormal;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(hotkey.ExpressionFile))
@@ -491,7 +514,6 @@ public sealed partial class RootViewModel : ObservableObject
             $"Provided empty expression state! Expression state sync omitted!".Out(ConsoleColor.Yellow);
             return;
         }
-
 
         var result = await VTubeStudio.Instance.Request<VTSExpressionStateResponse>(new VTSExpressionStateRequest()
         {
@@ -539,26 +561,10 @@ public sealed partial class RootViewModel : ObservableObject
         // Handles unfreeze.
         if (IsFrozen)
         {
-            if (IsTriggered)
-            {
-                if (AllowUnfreezeWhileTriggered)
-                {
-                    long elapsed = tick - LastAudioCaptureTick;
-                    FrozenTriggeredTotalTicks += elapsed;
-                    if (FrozenTriggeredTotalTicks >= (long)TimeSpan.FromSeconds(TriggeredUnfreezeDelay).TotalMilliseconds)
-                        IsFrozen = false;
-                }
-            }
-            else
-            {
-                if (AllowUnfreezeWhileNormal)
-                {
-                    long elapsed = tick - LastAudioCaptureTick;
-                    FrozenNormalTotalTicks += elapsed;
-                    if (FrozenNormalTotalTicks >= (long)TimeSpan.FromSeconds(NormalUnfreezeDelay).TotalMilliseconds)
-                        IsFrozen = false;
-                }
-            }
+            long elapsed = tick - LastAudioCaptureTick;
+            TotalFrozenTicks += elapsed;
+            if (TotalFrozenTicks >= (long)TimeSpan.FromSeconds(FreezeDuration).TotalMilliseconds)
+                IsFrozen = false;
         }
 
         // Input volume update.
@@ -584,8 +590,12 @@ public sealed partial class RootViewModel : ObservableObject
             }
         }
 
+        // Mitigates division by zero exceptions.
+        double power = Math.Clamp(ActivationPower, 0.001, 1000);
+        double threshold = Math.Clamp(ActivationThreshold, 0.001, 1);
+
         //$"Audio volume: {AudioVolume}".Out();
-        bool active = AudioVolume >= ActivationThreshold;
+        bool active = AudioVolume >= threshold;
         if (!IsActivated && active)
         {
             // Handling jump.
@@ -599,29 +609,21 @@ public sealed partial class RootViewModel : ObservableObject
 
         IsActivated = active;
 
-        // Mitigates division by zero exceptions.
-        double power = Math.Clamp(ActivationPower, 0.001, 1000);
-        double threshold = Math.Clamp(ActivationThreshold, 0.001, 1);
-
-        // Indicates how close AudioVolume is to the max possible volume [0.0:1.0], using ActivationThreshold as origin.
-        double from, to, value, result;
+        // Indicates how close AudioVolume is to the max possible volume [0.0:1.0], using threshold as origin.
+        double result;
         if (active)
         {
-            value = AudioVolume;
-            from = threshold;
-            to = 1;
-            result = (value - from) / (to - from);
-            result = Math.Pow(result, 0.5) * power; // Values close to 0 are multiplied by ~2-3.
+            double relative = AudioVolume / threshold;
+            result = Math.Pow(relative, 0.5) * power; // Values close to 0 are multiplied by ~2-3.
         }
         else
         {
-            value = AudioVolume;
-            from = threshold;
-            to = 0;
-            result = (value - from) / (to - from);
-            result = -Math.Pow(result, 0.5) * 0.3; // Values close to 0 are multiplied by ~2-3.
+            double relative = Math.Clamp((AudioVolume - threshold) / (1 - threshold), 0, 1);
+            result = -Math.Pow(relative, 0.5) * 0.3; // Values close to 0 are multiplied by ~2-3.
         }
 
+        if (!double.IsFinite(result))
+            result = 0;
 
         //double relative = active
         //        ? Math.Clamp((AudioVolume - threshold) / (1 - threshold), 0, 1)
@@ -633,11 +635,7 @@ public sealed partial class RootViewModel : ObservableObject
         if (IsTriggered)
         {
             var resistance = SelectedResistance ?? TriggeredResistance.Default;
-            //$"Resistance: {resistance.Resistance}".Out();
-            value = AudioVolume;
-            from = 1;
-            to = threshold;
-            double relativeActivation = Math.Clamp((value - from) / (to - from), 0, 1);
+            double relativeActivation = Math.Clamp((1 - AudioVolume) / (1 - threshold), 0, 1);
             double direction = (-1 * relativeActivation) + (Math.Max(result, 0) * resistance.Resistance);
             Progress = Math.Clamp(Progress + (direction / TriggeredReleaseDuration * delta), 0, 1);
         }
@@ -670,7 +668,19 @@ public sealed partial class RootViewModel : ObservableObject
         AvatarFlags = (IsActivated ? AvatarFlags.Active : default(AvatarFlags))
             | (IsTriggered ? AvatarFlags.TriggeredNormal : default(AvatarFlags));
         $"IsTriggered changed to: {value}".Out(ConsoleColor.Cyan);
-        ProgressBrush = IsTriggered ? Brushes.Red : Brushes.Yellow;
+        UpdateBrushes();
+    }
+
+    partial void OnIsFrozenChanged(bool value)
+    {
+        $"IsFrozen changed to: {value}".Out(ConsoleColor.Cyan);
+        UpdateBrushes();
+    }
+
+    void UpdateBrushes()
+    {
+        ProgressBrush = IsFrozen ? Brushes.Cyan : IsTriggered ? Brushes.Red : Brushes.Yellow;
+        VoiceMeterBrush = IsFrozen ? Brushes.Cyan : Brushes.Lime;
     }
 
     partial void OnIsActivatedChanged(bool value)
@@ -703,8 +713,9 @@ public sealed partial class RootViewModel : ObservableObject
         }
         else
         {
-            FrozenNormalTotalTicks = 0;
-            FrozenTriggeredTotalTicks = 0;
+            //FrozenNormalTotalTicks = 0;
+            //FrozenTriggeredTotalTicks = 0;
+            TotalFrozenTicks = 0;
             LastAudioCaptureTick = Environment.TickCount64;
             LastJumpTick = 0;
         }
