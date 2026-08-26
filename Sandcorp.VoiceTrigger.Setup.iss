@@ -31,7 +31,7 @@ Name: en; MessagesFile: "compiler:Default.isl"
 // Source: "VoiceTrigger\bin\{#CompileMode}\net7.0-windows\win-x64\ECPlayer.exe"; DestDir: "{app}"
 // Source: "VoiceTrigger\bin\{#CompileMode}\net7.0-windows\win-x64\ffmpeg\x64\*"; DestDir: "{app}\ffmpeg\x64"
 // Source: "VoiceTrigger\bin\{#CompileMode}\net7.0-windows\win-x64\ffmpeg\x86\*"; DestDir: "{app}\ffmpeg\x86";
-Source: "bin\{#CompileMode}\net9.0-windows\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "bin\{#CompileMode}\net9.0-windows\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 // [Tasks]
 // Name: startup; Description: "Automatically start on login"; GroupDescription: "{cm:AdditionalIcons}"
