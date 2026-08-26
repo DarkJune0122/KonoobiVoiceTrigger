@@ -3,6 +3,12 @@ using VoiceTrigger.Services;
 
 namespace VoiceTrigger.Configuration;
 
+public sealed class AudioDeviceDescriptor(string id, string name)
+{
+    public string ID = id;
+    public string FriendlyName = name;
+}
+
 public sealed class RoamingConfiguration : ConfigurationTemplate
 {
     [JsonIgnore] protected override string FilePath => ConfigurationService.RoamingConfigurationFilePath;
@@ -14,7 +20,7 @@ public sealed class RoamingConfiguration : ConfigurationTemplate
     [JsonInclude] public double TriggeredActivationJump { get; set; } = 0.02;
     [JsonInclude] public int SelectedResistanceIndex { get; set; } = -1;
     [JsonInclude] public int SelectedSamplingRateIndex { get; set; } = -1;
-    [JsonInclude] public string SelectedAudioDeviceID { get; set; } = string.Empty;
+    [JsonInclude] public AudioDeviceDescriptor? SelectedAudioDevice { get; set; }
     [JsonInclude] public ModelHotkey? SelectedHotkey { get; set; }
     [JsonInclude] public ModelExpression? SelectedExpression { get; set; }
     [JsonInclude] public bool EnableFreezing { get; set; } = true;

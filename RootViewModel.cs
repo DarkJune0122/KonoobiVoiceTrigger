@@ -30,6 +30,7 @@ public sealed partial class RootViewModel : ObservableObject
     [ObservableProperty] public partial bool AudioCaptureEnabled { get; set; }
     [ObservableProperty] public partial DeviceViewModel[] AudioCaptureDevices { get; set; } = [];
     [ObservableProperty] public partial DeviceViewModel? SelectedAudioCaptureDevice { get; set; }
+    [ObservableProperty] public partial bool SelectedDeviceValid { get; set; }
     [ObservableProperty] public partial SamplingRate[] SamplingRates { get; set; } = [];
     [ObservableProperty] public partial SamplingRate? SelectedSamplingRate { get; set; }
 
@@ -122,7 +123,6 @@ public sealed partial class RootViewModel : ObservableObject
     [ObservableProperty] public partial double Progress { get; set; }
 
     readonly DispatcherTimer AudioCaptureTimer = new();
-    MMDevice? ActiveAudioCaptureDevice;
     long LastAudioCaptureTick;
     //long FrozenNormalTotalTicks;
     //long FrozenTriggeredTotalTicks;
@@ -169,6 +169,19 @@ public sealed partial class RootViewModel : ObservableObject
             SelectedExpression = null;
         }
 
+        var device = ConfigurationService.Roaming.SelectedAudioDevice;
+        if (device is not null)
+        {
+            DeviceViewModel inst = new() { ID = device.ID, DisplayName = device.FriendlyName, IsValid = false };
+            AudioCaptureDevices = [inst];
+            SelectedAudioCaptureDevice = inst;
+        }
+        else
+        {
+            AudioCaptureDevices = [];
+            SelectedAudioCaptureDevice = null;
+        }
+
         int index;
         SamplingRates = [
             new(15),
@@ -184,7 +197,7 @@ public sealed partial class RootViewModel : ObservableObject
             new(240),
         ];
         index = ConfigurationService.Roaming.SelectedSamplingRateIndex;
-        if (index < 0 || index > SamplingRates.Length)
+        if (index < 0 || index >= SamplingRates.Length)
             SelectedSamplingRate = SamplingRates[7];
         else
             SelectedSamplingRate = SamplingRates[index];
@@ -198,7 +211,7 @@ public sealed partial class RootViewModel : ObservableObject
             new("\"Mid\"", 4.2),
         ];
         index = ConfigurationService.Roaming.SelectedResistanceIndex;
-        if (index < 0 || index > Resistances.Length)
+        if (index < 0 || index >= Resistances.Length)
             SelectedResistance = Resistances[2];
         else
             SelectedResistance = Resistances[index];
@@ -568,13 +581,9 @@ public sealed partial class RootViewModel : ObservableObject
         }
 
         // Input volume update.
-        if (!AudioCaptureEnabled || ActiveAudioCaptureDevice is null)
+        if (AudioCaptureEnabled && SelectedAudioCaptureDevice is not null && SelectedAudioCaptureDevice.Device is not null)
         {
-            AudioVolume = 0;
-        }
-        else
-        {
-            var channels = ActiveAudioCaptureDevice.AudioMeterInformation.PeakValues;
+            var channels = SelectedAudioCaptureDevice.Device.AudioMeterInformation.PeakValues;
             if (channels.Count == 0)
             {
                 AudioVolume = 0;
@@ -588,6 +597,10 @@ public sealed partial class RootViewModel : ObservableObject
                 }
                 AudioVolume = max;
             }
+        }
+        else
+        {
+            AudioVolume = 0;
         }
 
         // Mitigates division by zero exceptions.
@@ -752,39 +765,70 @@ public sealed partial class RootViewModel : ObservableObject
     private void RefreshInputDevicesImmediate()
     {
         $"Refreshing input devices...".Out();
-        var collection = new MMDeviceEnumerator().EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
+        using var enumerator = new MMDeviceEnumerator();
+        var collection = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
         if (collection.Count == 0)
         {
-            SelectedAudioCaptureDevice = null;
-            ActiveAudioCaptureDevice = null;
-            AudioCaptureDevices = [];
+            if (SelectedAudioCaptureDevice is null)
+            {
+                AudioCaptureDevices = [];
+                SelectedAudioCaptureDevice = null;
+            }
+            else
+            {
+                AudioCaptureDevices = [SelectedAudioCaptureDevice];
+                SelectedAudioCaptureDevice.IsValid = false;
+                ConfigurationService.Roaming.SelectedAudioDevice
+                    = new(SelectedAudioCaptureDevice.ID, SelectedAudioCaptureDevice.DisplayName);
+            }
+
+            $"Input devices refreshed! total of ({collection.Count}) devices found!".Out();
             return;
         }
 
-        string id;
-        AudioCaptureDevices = [.. collection.Select(static d => new DeviceViewModel() { ID = d.ID, DisplayName = d.FriendlyName })];
+        var devices = collection.Select(static d => new DeviceViewModel()
+        {
+            ID = d.ID,
+            DisplayName = d.FriendlyName,
+            Device = d,
+            IsValid = true,
+        }).ToList();
+
         if (SelectedAudioCaptureDevice is null)
         {
-            var device = collection.FirstOrDefault(static d => string.Equals(d.ID, ConfigurationService.Roaming.SelectedAudioDeviceID));
-            if (device is null)
-                ActiveAudioCaptureDevice = collection[0];
-            else
-                ActiveAudioCaptureDevice = device;
+            AudioCaptureDevices = [.. devices];
+            SelectedAudioCaptureDevice = AudioCaptureDevices[0];
+            $"Currently selecte audio capture device not found! First one will be selected instead.".Out();
         }
         else
         {
-            id = SelectedAudioCaptureDevice.ID;
-            ActiveAudioCaptureDevice = collection.FirstOrDefault(d => d.ID == id) ?? collection[0];
+            int index = devices.FindIndex(d => string.Equals(d.ID, SelectedAudioCaptureDevice.ID));
+            if (index == -1)
+            {
+                devices.Add(SelectedAudioCaptureDevice);
+            }
+            else if (devices[index] != SelectedAudioCaptureDevice)
+            {
+                devices[index] = SelectedAudioCaptureDevice;
+            }
+            AudioCaptureDevices = [.. devices];
+            // Selected device remains.
         }
-
-        id = ActiveAudioCaptureDevice.ID;
-        SelectedAudioCaptureDevice = AudioCaptureDevices.FirstOrDefault(d => d.ID == id);
         $"Input devices refreshed! Found: {AudioCaptureDevices.Length}".Out();
     }
 
     partial void OnSelectedAudioCaptureDeviceChanged(DeviceViewModel? value)
     {
-        ConfigurationService.Roaming.SelectedAudioDeviceID = value?.ID ?? string.Empty;
+        if (value is null)
+        {
+            ConfigurationService.Roaming.SelectedAudioDevice = null;
+            SelectedDeviceValid = true;
+        }
+        else
+        {
+            ConfigurationService.Roaming.SelectedAudioDevice = new(value.ID, value.DisplayName);
+            SelectedDeviceValid = value.IsValid;
+        }
     }
 
     //Task? RefreshTask;

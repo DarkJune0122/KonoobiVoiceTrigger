@@ -1,6 +1,6 @@
 #define public Dependency_Path_NetCoreCheck "dependencies\"
 #define CompileMode "Debug"  
-#define Version "1.0.0.0"
+#define Version "1.0.0.1"
 
 #include "CodeDependencies.iss"
 
@@ -21,7 +21,7 @@ LanguageDetectionMethod=none
 
 PrivilegesRequired=lowest
 // If includes auto-start option, as well as adding items to the windows start menu.
-// PrivilegesRequired=lowest
+// PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]

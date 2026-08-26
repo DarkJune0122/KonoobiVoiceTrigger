@@ -166,7 +166,7 @@ public partial class AvatarControl : UserControl
                     string filePath;
                     try
                     {
-                        filePath = Path.Combine(App.ResourcesFolder, "Avatar", "Source", fileName);
+                        filePath = Path.Combine(App.ResourcesFolder, "Avatar", fileName);
                     }
                     catch (Exception ex)
                     {

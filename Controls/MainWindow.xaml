@@ -332,6 +332,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
@@ -347,7 +348,12 @@
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
-            <ComboBox Grid.Column="1" MinWidth="90"
+            <ui:SymbolIcon Grid.Column="1" Symbol="Warning24"
+                           Visibility="{Binding SelectedDeviceValid, Converter={x:Static local:BoolToVisibilityConverter.Instance}, ConverterParameter=invert}"
+                           ToolTip="Currently selected audio device is invalid!"
+                           ToolTipService.InitialShowDelay="0"
+                           ToolTipService.BetweenShowDelay="0"/>
+            <ComboBox Grid.Column="2" MinWidth="90"
                       ToolTip="Amount of updates per second. Higher values give better experience."
                       ToolTipService.InitialShowDelay="0"
                       ToolTipService.BetweenShowDelay="0"
@@ -369,7 +375,7 @@
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>-->
-            <ComboBox Grid.Column="3" MinWidth="360"
+            <ComboBox Grid.Column="4" MinWidth="360"
                       ToolTip="Model expression to track and toggle."
                       ToolTipService.InitialShowDelay="0"
                       ToolTipService.BetweenShowDelay="0"
