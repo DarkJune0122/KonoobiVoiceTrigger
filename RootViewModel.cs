@@ -5,7 +5,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using System.Windows.Threading;
-using VoiceTrigger.Services;
+using VoiceTrigger.Audio;
+using VoiceTrigger.Configuration;
 using VoiceTrigger.VTS;
 using VoiceTrigger.VTS.Events;
 using VoiceTrigger.VTS.Requests;
@@ -28,9 +29,6 @@ public sealed partial class RootViewModel : ObservableObject
     // Audio input:
     [ObservableProperty] public partial double AudioVolume { get; set; }
     [ObservableProperty] public partial bool AudioCaptureEnabled { get; set; }
-    [ObservableProperty] public partial DeviceViewModel[] AudioCaptureDevices { get; set; } = [];
-    [ObservableProperty] public partial DeviceViewModel? SelectedAudioCaptureDevice { get; set; }
-    [ObservableProperty] public partial bool SelectedDeviceValid { get; set; }
     [ObservableProperty] public partial SamplingRate[] SamplingRates { get; set; } = [];
     [ObservableProperty] public partial SamplingRate? SelectedSamplingRate { get; set; }
 
@@ -131,21 +129,21 @@ public sealed partial class RootViewModel : ObservableObject
 
     public RootViewModel()
     {
-        ActivationPower = ConfigurationService.Roaming.ActivationPower;
-        NormalActivationJump = ConfigurationService.Roaming.NormalActivationJump;
-        TriggeredReleaseDuration = ConfigurationService.Roaming.TriggeredReleaseDuration;
-        NormalActivationDuration = ConfigurationService.Roaming.NormalActivationDuration;
-        TriggeredActivationJump = ConfigurationService.Roaming.TriggeredActivationJump;
+        ActivationPower = Roaming.ActivationPower;
+        NormalActivationJump = Roaming.NormalActivationJump;
+        TriggeredReleaseDuration = Roaming.TriggeredReleaseDuration;
+        NormalActivationDuration = Roaming.NormalActivationDuration;
+        TriggeredActivationJump = Roaming.TriggeredActivationJump;
 
-        EnableFreezing = ConfigurationService.Roaming.EnableFreezing;
-        FreezeDuration = ConfigurationService.Roaming.FreezeDuration;
-        InstantUnfreezeOnManualNormal = ConfigurationService.Roaming.InstantUnfreezeOnManualNormal;
-        //AllowUnfreezeWhileNormal = ConfigurationService.Roaming.AllowUnfreezeWhileNormal;
-        //NormalUnfreezeDelay = ConfigurationService.Roaming.NormalUnfreezeDelay;
-        //AllowUnfreezeWhileTriggered = ConfigurationService.Roaming.AllowUnfreezeWhileTriggered;
-        //TriggeredUnfreezeDelay = ConfigurationService.Roaming.TriggeredUnfreezeDelay;
+        EnableFreezing = Roaming.EnableFreezing;
+        FreezeDuration = Roaming.FreezeDuration;
+        InstantUnfreezeOnManualNormal = Roaming.InstantUnfreezeOnManualNormal;
+        //AllowUnfreezeWhileNormal = Roaming.AllowUnfreezeWhileNormal;
+        //NormalUnfreezeDelay = Roaming.NormalUnfreezeDelay;
+        //AllowUnfreezeWhileTriggered = Roaming.AllowUnfreezeWhileTriggered;
+        //TriggeredUnfreezeDelay = Roaming.TriggeredUnfreezeDelay;
 
-        var hotkey = ConfigurationService.Roaming.SelectedHotkey;
+        var hotkey = Roaming.SelectedHotkey;
         if (hotkey is not null)
         {
             Hotkeys = [hotkey];
@@ -157,7 +155,7 @@ public sealed partial class RootViewModel : ObservableObject
             SelectedHotkey = null;
         }
 
-        var expression = ConfigurationService.Roaming.SelectedExpression;
+        var expression = Roaming.SelectedExpression;
         if (expression is not null)
         {
             Expressions = [expression];
@@ -167,19 +165,6 @@ public sealed partial class RootViewModel : ObservableObject
         {
             Expressions = [];
             SelectedExpression = null;
-        }
-
-        var device = ConfigurationService.Roaming.SelectedAudioDevice;
-        if (device is not null)
-        {
-            DeviceViewModel inst = new() { ID = device.ID, DisplayName = device.FriendlyName, IsValid = false };
-            AudioCaptureDevices = [inst];
-            SelectedAudioCaptureDevice = inst;
-        }
-        else
-        {
-            AudioCaptureDevices = [];
-            SelectedAudioCaptureDevice = null;
         }
 
         int index;
@@ -196,7 +181,7 @@ public sealed partial class RootViewModel : ObservableObject
             new(180),
             new(240),
         ];
-        index = ConfigurationService.Roaming.SelectedSamplingRateIndex;
+        index = Local.SelectedSamplingRateIndex;
         if (index < 0 || index >= SamplingRates.Length)
             SelectedSamplingRate = SamplingRates[7];
         else
@@ -210,7 +195,7 @@ public sealed partial class RootViewModel : ObservableObject
             new("Higher", 3),
             new("\"Mid\"", 4.2),
         ];
-        index = ConfigurationService.Roaming.SelectedResistanceIndex;
+        index = Roaming.SelectedResistanceIndex;
         if (index < 0 || index >= Resistances.Length)
             SelectedResistance = Resistances[2];
         else
@@ -219,10 +204,8 @@ public sealed partial class RootViewModel : ObservableObject
         LastAudioCaptureTick = Environment.TickCount64;
         AudioCaptureTimer.Tick += SampleTick;
         AudioCaptureTimer.Interval = IntervalFromSampleRate(SelectedSamplingRate);
-        AudioCaptureEnabled = ConfigurationService.Local.IsAudioCaptureActive;
+        AudioCaptureEnabled = Local.IsAudioCaptureActive;
         AudioCaptureTimer.IsEnabled = AudioCaptureEnabled;
-        SelectedAudioCaptureDevice = null;
-        Activate();
 
         VTubeStudio.Instance.Events.Track<VTSHotkeyTriggeredEvent>(HandleHotkeyTriggered);
         VTubeStudio.Instance.Events.Track<VTSModelLoadedEvent>(HandleModelLoaded);
@@ -257,69 +240,69 @@ public sealed partial class RootViewModel : ObservableObject
 
     partial void OnEnableFreezingChanged(bool value)
     {
-        ConfigurationService.Roaming.EnableFreezing = value;
+        Roaming.EnableFreezing = value;
     }
 
     partial void OnFreezeDurationChanged(double value)
     {
-        ConfigurationService.Roaming.FreezeDuration = value;
+        Roaming.FreezeDuration = value;
     }
 
     partial void OnInstantUnfreezeOnManualNormalChanged(bool value)
     {
-        ConfigurationService.Roaming.InstantUnfreezeOnManualNormal = value;
+        Roaming.InstantUnfreezeOnManualNormal = value;
         if (value && !IsTriggered)
             IsFrozen = false;
     }
 
     //partial void OnAllowUnfreezeWhileNormalChanged(bool value)
     //{
-    //    ConfigurationService.Roaming.AllowUnfreezeWhileNormal = value;
+    //    Roaming.AllowUnfreezeWhileNormal = value;
     //}
 
     //partial void OnNormalUnfreezeDelayChanged(double value)
     //{
-    //    ConfigurationService.Roaming.NormalUnfreezeDelay = value;
+    //    Roaming.NormalUnfreezeDelay = value;
     //}
 
     //partial void OnAllowUnfreezeWhileTriggeredChanged(bool value)
     //{
-    //    ConfigurationService.Roaming.AllowUnfreezeWhileTriggered = value;
+    //    Roaming.AllowUnfreezeWhileTriggered = value;
     //}
 
     //partial void OnTriggeredUnfreezeDelayChanged(double value)
     //{
-    //    ConfigurationService.Roaming.TriggeredUnfreezeDelay = value;
+    //    Roaming.TriggeredUnfreezeDelay = value;
     //}
 
     partial void OnSelectedResistanceChanged(TriggeredResistance? value)
     {
-        ConfigurationService.Roaming.SelectedResistanceIndex = Array.IndexOf(Resistances, value);
+        Roaming.SelectedResistanceIndex = Array.IndexOf(Resistances, value);
     }
 
     partial void OnActivationPowerChanged(double value)
     {
-        ConfigurationService.Roaming.ActivationPower = value;
+        Roaming.ActivationPower = value;
     }
 
     partial void OnNormalActivationDurationChanged(double value)
     {
-        ConfigurationService.Roaming.NormalActivationDuration = value;
+        Roaming.NormalActivationDuration = value;
     }
 
     partial void OnTriggeredReleaseDurationChanged(double value)
     {
-        ConfigurationService.Roaming.TriggeredReleaseDuration = value;
+        Roaming.TriggeredReleaseDuration = value;
     }
 
     partial void OnNormalActivationJumpChanged(double value)
     {
-        ConfigurationService.Roaming.NormalActivationJump = value;
+        Roaming.NormalActivationJump = value;
     }
 
     partial void OnTriggeredActivationJumpChanged(double value)
     {
-        ConfigurationService.Roaming.TriggeredActivationJump = value;
+        Roaming.TriggeredActivationJump = value;
     }
 
     /// <summary>
@@ -581,9 +564,9 @@ public sealed partial class RootViewModel : ObservableObject
         }
 
         // Input volume update.
-        if (AudioCaptureEnabled && SelectedAudioCaptureDevice is not null && SelectedAudioCaptureDevice.Device is not null)
+        if (AudioCaptureEnabled && AudioCaptureService.Instance.SelectedAudioDevice is { IsActive: true })
         {
-            var channels = SelectedAudioCaptureDevice.Device.AudioMeterInformation.PeakValues;
+            var channels = AudioCaptureService.Instance.SelectedAudioDevice.Device.AudioMeterInformation.PeakValues;
             if (channels.Count == 0)
             {
                 AudioVolume = 0;
@@ -704,7 +687,7 @@ public sealed partial class RootViewModel : ObservableObject
 
     partial void OnSelectedSamplingRateChanged(SamplingRate? value)
     {
-        ConfigurationService.Roaming.SelectedSamplingRateIndex = Array.IndexOf(SamplingRates, value);
+        Local.SelectedSamplingRateIndex = Array.IndexOf(SamplingRates, value);
         AudioCaptureTimer.Interval = IntervalFromSampleRate(value);
     }
 
@@ -733,227 +716,18 @@ public sealed partial class RootViewModel : ObservableObject
             LastJumpTick = 0;
         }
         AudioCaptureTimer.IsEnabled = value;
-        ConfigurationService.Local.IsAudioCaptureActive = value;
+        Local.IsAudioCaptureActive = value;
     }
-
-    bool IsFocused;
-    [RelayCommand] public void Activate() => Application.Current.Dispatcher.Invoke(ActivateImmediate);
-    private void ActivateImmediate()
-    {
-        if (IsFocused) return;
-        try
-        {
-            IsFocused = true;
-            RefreshInputDevicesImmediate();
-            //_ = RefreshExpressions();
-            //VTubeStudio.Instance.OnAuthenticated += HandleAuthenticated;
-            //if (VTubeStudio.Instance.Authenticated)
-            //    HandleAuthenticated();
-        }
-        catch { IsFocused = false; throw; }
-    }
-
-    [RelayCommand] public void Deactivate() => Application.Current.Dispatcher.Invoke(DeactivateImmediate);
-    private void DeactivateImmediate()
-    {
-        if (!IsFocused) return;
-        IsFocused = false;
-        //VTubeStudio.Instance.OnAuthenticated -= HandleAuthenticated;
-    }
-
-    [RelayCommand] public void RefreshInputDevices() => Application.Current.Dispatcher.Invoke(RefreshInputDevicesImmediate);
-    private void RefreshInputDevicesImmediate()
-    {
-        $"Refreshing input devices...".Out();
-        using var enumerator = new MMDeviceEnumerator();
-        var collection = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
-        if (collection.Count == 0)
-        {
-            if (SelectedAudioCaptureDevice is null)
-            {
-                AudioCaptureDevices = [];
-                SelectedAudioCaptureDevice = null;
-            }
-            else
-            {
-                AudioCaptureDevices = [SelectedAudioCaptureDevice];
-                SelectedAudioCaptureDevice.IsValid = false;
-                ConfigurationService.Roaming.SelectedAudioDevice
-                    = new(SelectedAudioCaptureDevice.ID, SelectedAudioCaptureDevice.DisplayName);
-            }
-
-            $"Input devices refreshed! total of ({collection.Count}) devices found!".Out();
-            return;
-        }
-
-        var devices = collection.Select(static d => new DeviceViewModel()
-        {
-            ID = d.ID,
-            DisplayName = d.FriendlyName,
-            Device = d,
-            IsValid = true,
-        }).ToList();
-
-        if (SelectedAudioCaptureDevice is null)
-        {
-            AudioCaptureDevices = [.. devices];
-            SelectedAudioCaptureDevice = AudioCaptureDevices[0];
-            $"Currently selecte audio capture device not found! First one will be selected instead.".Out();
-        }
-        else
-        {
-            int index = devices.FindIndex(d => string.Equals(d.ID, SelectedAudioCaptureDevice.ID));
-            if (index == -1)
-            {
-                devices.Add(SelectedAudioCaptureDevice);
-            }
-            else if (devices[index] != SelectedAudioCaptureDevice)
-            {
-                devices[index] = SelectedAudioCaptureDevice;
-            }
-            AudioCaptureDevices = [.. devices];
-            // Selected device remains.
-        }
-        $"Input devices refreshed! Found: {AudioCaptureDevices.Length}".Out();
-    }
-
-    partial void OnSelectedAudioCaptureDeviceChanged(DeviceViewModel? value)
-    {
-        if (value is null)
-        {
-            ConfigurationService.Roaming.SelectedAudioDevice = null;
-            SelectedDeviceValid = true;
-        }
-        else
-        {
-            ConfigurationService.Roaming.SelectedAudioDevice = new(value.ID, value.DisplayName);
-            SelectedDeviceValid = value.IsValid;
-        }
-    }
-
-    //Task? RefreshTask;
-
-    //[RelayCommand]
-    //public Task RefreshExpressions()
-    //{
-    //    if (RefreshTask is null || RefreshTask.IsCompleted)
-    //    {
-    //        return RefreshTask = RefreshExpressionsInternal();
-    //    }
-    //    else return RefreshTask;
-    //}
-    //async Task RefreshExpressionsInternal()
-    //{
-    //    $"Refreshing model expression list..".Out();
-    //    if (VTubeStudio.Instance.Status != VTSStatus.Authenticated)
-    //    {
-    //        $"VTS not authenticated (Status: {VTubeStudio.Instance.Status}). Resetting expression list.".Out();
-    //        Application.Current.Dispatcher.Invoke(ResetExpressions);
-    //        return;
-    //    }
-    //    var result = await VTubeStudio.Instance.Request<VTSExpressionStateResponse>(new VTSExpressionStateRequest
-    //    {
-    //        Data = new()
-    //        {
-    //            Details = false,
-    //            ExpressionFile = string.Empty,
-    //        }
-    //    });
-    //    if (result.ResolveSuccess(out var response) && response.Data is not null)
-    //    {
-    //        if (!response.Data.ModelLoaded || response.Data.Expressions is null)
-    //        {
-    //            Application.Current.Dispatcher.Invoke(ResetExpressions);
-    //        }
-    //        else
-    //        {
-    //            var list = response.Data.Expressions.Select(e => new ExpressionViewModel()
-    //            {
-    //                ModelID = response.Data.ModelID ?? string.Empty,
-    //                ModelName = response.Data.ModelName ?? string.Empty,
-    //                Name = e.Name ?? string.Empty,
-    //                DisplayName = e.Name ?? string.Empty,
-    //                Exists = true,
-    //            }).ToList();
-    //            Application.Current.Dispatcher.Invoke(() => SetExpressions(list));
-    //        }
-    //        $"Expression list refreshed successfully!".Out();
-    //    }
-    //    else
-    //    {
-    //        $"Cannot refresh model parameters! Received:\n{result}".Out(ConsoleColor.Yellow);
-    //    }
-
-    //    void ResetExpressions() => SetExpressions([]);
-    //    void SetExpressions(List<ExpressionViewModel> expressions)
-    //    {
-    //        if (expressions.Count == 0)
-    //        {
-    //            if (SelectedModelExpression is not null)
-    //            {
-    //                SelectedModelExpression.Exists = false;
-    //                ModelExpressions = [SelectedModelExpression];
-    //            }
-    //            else ModelExpressions = [];
-    //            return;
-    //        }
-
-    //        if (SelectedModelExpression is not null)
-    //        {
-    //            var selected = SelectedModelExpression;
-    //            if (expressions.Contains(selected))
-    //            {
-    //                selected.Exists = true;
-    //            }
-    //            else
-    //            {
-    //                var similar = expressions.Find(ex => ex.Name == selected.Name);
-    //                if (similar is not null)
-    //                {
-    //                    selected = similar;
-    //                    selected.Exists = true;
-    //                }
-    //                else
-    //                {
-    //                    expressions.Add(selected);
-    //                    selected.Exists = false;
-    //                }
-    //            }
-
-    //            SelectedModelExpression = null;
-    //            ModelExpressions = [.. expressions];
-    //            SelectedModelExpression = selected;
-    //        }
-    //        else
-    //        {
-    //            SelectedModelExpression = null;
-    //            ModelExpressions = [.. expressions];
-    //        }
-    //    }
-    //}
-
-    //partial void OnSelectedModelExpressionChanged(ExpressionViewModel? value)
-    //{
-    //    SelectedModelExpressionExists = value is not null && value.Exists;
-
-    //    // Don't clean-up unless selected a valid expression.
-    //    // Makes sure you can select non-existing expressions if you have any from a previous model.
-    //    if (!SelectedModelExpressionExists) return;
-    //    if (Array.Exists(ModelExpressions, static e => !e.Exists))
-    //    {
-    //        ModelExpressions = ModelExpressions.Where(static e => e.Exists).ToArray();
-    //    }
-    //}
 
     partial void OnHotkeysChanged(ModelHotkey[] value) => UpdateActive();
     partial void OnSelectedHotkeyChanged(ModelHotkey? value)
     {
-        ConfigurationService.Roaming.SelectedHotkey = value;
+        Roaming.SelectedHotkey = value;
         UpdateActive();
     }
     partial void OnSelectedExpressionChanged(ModelExpression? value)
     {
-        ConfigurationService.Roaming.SelectedExpression = value;
+        Roaming.SelectedExpression = value;
         UpdateActive();
     }
     void UpdateActive()

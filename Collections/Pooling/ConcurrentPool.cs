@@ -1,6 +1,4 @@
-﻿using SmartBi.Net.Collections;
-
-namespace VoiceTrigger.Collections.Pooling;
+﻿namespace VoiceTrigger.Collections.Pooling;
 
 public sealed class ConcurrentPool<T>(int max = Pool.DefaultCapacity) : Pool<T>
 {

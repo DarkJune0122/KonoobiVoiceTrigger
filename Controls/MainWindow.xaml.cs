@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using VoiceTrigger.Configuration;
 using VoiceTrigger.Services;
 using Wpf.Ui.Controls;
 using Wpf.Ui.Tray.Controls;
@@ -125,21 +126,6 @@ public partial class MainWindow : FluentWindow
         });
     }
 
-    private void FluentWindow_Activated(object sender, EventArgs e)
-    {
-        if (DataContext is RootViewModel model)
-            model.Activate();
-        else $"Not a {nameof(RootViewModel)}!".Out(ConsoleColor.Yellow);
-    }
-
-    private void FluentWindow_Deactivated(object sender, EventArgs e)
-    {
-        ConfigurationService.Save();
-        if (DataContext is RootViewModel model)
-            model.Deactivate();
-        else $"Not a {nameof(RootViewModel)}!".Out(ConsoleColor.Yellow);
-    }
-
     protected override void OnKeyDown(KeyEventArgs e)
     {
         //if (e.Key == Key.Y)
@@ -154,6 +140,7 @@ public partial class MainWindow : FluentWindow
         //}
     }
 
+    private void Window_Deactivated(object sender, EventArgs e) => Save();
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)

@@ -1,1 +1,1 @@
-﻿global using static VoiceTrigger.Services.ConfigurationService;
+﻿global using static VoiceTrigger.Configuration.ConfigurationService;

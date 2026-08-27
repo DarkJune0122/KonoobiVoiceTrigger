@@ -3,7 +3,7 @@ using System.Windows.Data;
 using VoiceTrigger.VTS;
 using Wpf.Ui.Controls;
 
-namespace VoiceTrigger;
+namespace VoiceTrigger.Controls;
 
 [ValueConversion(typeof(VTSStatus), typeof(bool))]
 public sealed class VTSStatusToBoolConverter : AbstractConverter<BoolToVisibilityConverter>
@@ -14,6 +14,27 @@ public sealed class VTSStatusToBoolConverter : AbstractConverter<BoolToVisibilit
             return invert is not null;
 
         return status == VTSStatus.Online ? invert is null : invert is not null;
+    }
+
+    public override object ConvertBack(object value, Type targetType, object invert, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+[ValueConversion(typeof(bool), typeof(double))]
+public sealed class BoolToOpacityConverter : AbstractConverter<BoolToOpacityConverter>
+{
+    const double NormalOpacity = 1.0;
+    const double InactiveOpacity = 0.6;
+
+    public override object Convert(object value, Type targetType, object invert, CultureInfo culture)
+    {
+        if (value is not bool flag)
+            return invert is null ? NormalOpacity : InactiveOpacity;
+
+        if (invert is not null) flag = !flag;
+        return flag ? NormalOpacity : InactiveOpacity;
     }
 
     public override object ConvertBack(object value, Type targetType, object invert, CultureInfo culture)

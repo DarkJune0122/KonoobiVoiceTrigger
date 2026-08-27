@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using VoiceTrigger.Configuration;
 
 namespace VoiceTrigger.Services;
 

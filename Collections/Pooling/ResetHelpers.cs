@@ -5,6 +5,7 @@
 /// </summary>
 public sealed class ResetHelpers
 {
+    public static void ResetArray<T>(T[] array) => Array.Clear(array);
     public static void ResetList<T>(List<T> list) => list.Clear();
 }
 

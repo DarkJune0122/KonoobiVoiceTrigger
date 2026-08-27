@@ -5,7 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using VoiceTrigger.Services;
+using VoiceTrigger.Configuration;
 using VoiceTrigger.Shaders;
 using VoiceTrigger.VTS.Packets;
 

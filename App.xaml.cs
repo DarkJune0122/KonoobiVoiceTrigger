@@ -2,6 +2,7 @@
 using System.IO;
 using System.IO.Pipes;
 using System.Windows.Threading;
+using VoiceTrigger.Audio;
 using VoiceTrigger.Services;
 using VoiceTrigger.VTS;
 
@@ -45,14 +46,19 @@ public partial class App : Application
             return;
         }
 
-        LogService.Initialize();
-        SingletonSource = new();
-        _ = StartServerPipeAsync(SingletonSource.Token);
+        try
+        {
+            Initialize();
+            LogService.Initialize();
+            SingletonSource = new();
+            _ = StartServerPipeAsync(SingletonSource.Token);
 
-        ConfigurationService.Initialize();
-        VTSRestartTimer.Tick += MakeRestartAttempt;
-        VTSRestartTimer.Interval = TimeSpan.FromSeconds(1);
-        VTSRestartTimer.Start();
+            AudioCaptureService.Initialize();
+            VTSRestartTimer.Tick += MakeRestartAttempt;
+            VTSRestartTimer.Interval = TimeSpan.FromSeconds(1);
+            VTSRestartTimer.Start();
+        }
+        catch (Exception ex) { ex.Out("Exception during app startup! Shutting down..."); Shutdown(); }
     }
 
     private void MakeRestartAttempt(object? sender, EventArgs e)
@@ -67,8 +73,9 @@ public partial class App : Application
         base.OnExit(e);
         SingletonSource?.Cancel();
         VTubeStudio.Instance.Stop();
-        ConfigurationService.Terminate();
+        AudioCaptureService.Terminate();
         LogService.Terminate();
+        Terminate();
         SingletonMutex?.Dispose();
     }
 

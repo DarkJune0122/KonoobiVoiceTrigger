@@ -4,7 +4,7 @@
 // User, Admin
 #define PermissionLevel "Admin"
 // Enabled, Disable
-#define Console "Enabled"
+#define Console "Disabled"
 
 #include "CodeDependencies.iss"
 

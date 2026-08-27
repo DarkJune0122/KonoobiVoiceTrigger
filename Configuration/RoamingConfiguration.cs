@@ -12,8 +12,6 @@ public sealed class RoamingConfiguration : ConfigurationTemplate
     [JsonInclude] public double NormalActivationJump { get; set; } = 0.05;
     [JsonInclude] public double TriggeredActivationJump { get; set; } = 0.02;
     [JsonInclude] public int SelectedResistanceIndex { get; set; } = -1;
-    [JsonInclude] public int SelectedSamplingRateIndex { get; set; } = -1;
-    [JsonInclude] public AudioDeviceDescriptor? SelectedAudioDevice { get; set; }
     [JsonInclude] public ModelHotkey? SelectedHotkey { get; set; }
     [JsonInclude] public ModelExpression? SelectedExpression { get; set; }
     [JsonInclude] public bool EnableFreezing { get; set; } = true;

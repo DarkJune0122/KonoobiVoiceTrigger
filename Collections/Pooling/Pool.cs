@@ -4,7 +4,7 @@ namespace VoiceTrigger.Collections.Pooling;
 
 public static class Pool
 {
-    public const int DefaultCapacity = 256;
+    public const int DefaultCapacity = 64;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static T Rent<T>() where T : new() => Pool<T>.Shared.Rent();
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static T Rent<T>(Func<T> ctor) => Pool<T>.Shared.Rent(ctor);
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static void Return<T>(T value) => Pool<T>.Shared.Return(value);

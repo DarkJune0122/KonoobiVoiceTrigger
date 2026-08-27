@@ -1,21 +1,17 @@
 ﻿using System.IO;
-using VoiceTrigger.Configuration;
 
-namespace VoiceTrigger.Services;
+namespace VoiceTrigger.Configuration;
 
 public static class ConfigurationService
 {
     public static readonly string RoamingDirectory;
     public static readonly string LocalDirectory;
-    public static readonly string CommonDirectory;
 
     public static readonly string RoamingConfigurationFilePath;
     public static readonly string LocalConfigurationFilePath;
-    public static readonly string CommonConfigurationFilePath;
 
     public static RoamingConfiguration Roaming { get; } = new();
     public static LocalConfiguration Local { get; } = new();
-    public static CommonConfiguration Common { get; } = new();
 
     static ConfigurationService()
     {
@@ -36,12 +32,13 @@ public static class ConfigurationService
         }
 
         // Common.
-        {
-            var special = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            CommonDirectory = Path.Combine(special, "Sandcorp", nameof(VoiceTrigger));
-            try { Directory.CreateDirectory(CommonDirectory); } catch (Exception ex) { ex.Out(); }
-            CommonConfigurationFilePath = Path.Combine(CommonDirectory, "config.json");
-        }
+        // Removed, as it requires admin access to write to, iiuc.
+        //{
+        //    var special = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        //    CommonDirectory = Path.Combine(special, "Sandcorp", nameof(VoiceTrigger));
+        //    try { Directory.CreateDirectory(CommonDirectory); } catch (Exception ex) { ex.Out(); }
+        //    CommonConfigurationFilePath = Path.Combine(CommonDirectory, "config.json");
+        //}
     }
 
 
@@ -55,9 +52,9 @@ public static class ConfigurationService
     /// ===     ===     ===     ===    ===  == =  -                        -  = ==  ===    ===     ===     ===     ===]]>
     public static void Initialize() => Load();
     public static void Terminate() => Save();
-    public static bool Save() => Roaming.Save() && Local.Save() && Common.Save();
+    public static bool Save() => Roaming.Save() && Local.Save();
     /// <remarks>
     /// Loading should only appear once - at the start of the app.
     /// </remarks>
-    public static bool Load() => Roaming.Load() && Local.Load() && Common.Load();
+    public static bool Load() => Roaming.Load() && Local.Load();
 }
