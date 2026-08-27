@@ -12,7 +12,7 @@
     <Title>Konoobi Voice Trigger</Title>
     <Copyright>SANDCorp, Shade of Singularity (SoG)</Copyright>
     <LangVersion>preview</LangVersion>
-    <Version>1.0.2</Version>
+    <Version>1.1.0</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <PackageVersion>$(Version)</PackageVersion>
   </PropertyGroup>
