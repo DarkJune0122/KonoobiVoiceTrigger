@@ -12,19 +12,17 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
 {
     public delegate void SelectedAudioDeviceChangedEventHandler(AudioDeviceViewModel? model);
 
+    static readonly MMDeviceEnumerator DeviceEnumerator = new();
     public static readonly AudioCaptureService Instance = new();
 
     public event SelectedAudioDeviceChangedEventHandler? SelectedAudioDeviceChanged;
 
     public ObservableCollection<AudioDeviceViewModel> AudioDevices { get; }
-    [ObservableProperty] public partial AudioDeviceViewModel SelectedAudioDevice { get; set; }
+    [ObservableProperty] public partial AudioDeviceViewModel? SelectedAudioDevice { get; set; }
 
-    readonly MMDeviceEnumerator DeviceEnumerator = new();
-
-    ~AudioCaptureService() => DeviceEnumerator.Dispose();
     public AudioCaptureService()
     {
-        DeviceEnumerator.RegisterEndpointNotificationCallback(this);
+        // .ctor should be initialized from App.OnStartup() UI callback.
         var desc = Local.SelectedAudioDevice;
         if (desc is null || string.IsNullOrWhiteSpace(desc.ID))
         {
@@ -42,18 +40,17 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
             AudioDevices = [AudioDeviceViewModel.None, construct];
             SelectedAudioDevice = construct; // Updated last intentionally.
         }
-        RebuildDevicesImmediate();
     }
 
-    public static void Initialize() { /* Intentional - activates the constructor. */ }
-    public static void Terminate() { /* Nothing here yet. */ }
+    public void Initialize() { DeviceEnumerator.RegisterEndpointNotificationCallback(this); RebuildDevicesImmediate(); }
+    public void Terminate() { DeviceEnumerator.UnregisterEndpointNotificationCallback(this); }
 
-    partial void OnSelectedAudioDeviceChanged(AudioDeviceViewModel value)
+    partial void OnSelectedAudioDeviceChanged(AudioDeviceViewModel? value)
     {
         try
         {
             $"{this} Selected audio device changing to: {value}".Out(ConsoleColor.DarkGray);
-            value.UpdateState();
+            value?.UpdateState();
             SerializeSelectedAudioDevice();
             SelectedAudioDeviceChanged?.Invoke(value);
             $"{this} Selected audio device changed.".Out(ConsoleColor.DarkGray);
@@ -69,9 +66,9 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
             Local.SelectedAudioDevice = null;
             if (option is not null)
             {
-                Pool.Return(option);
                 option.ID = null!;
                 option.FriendlyName = null!;
+                Pool.Return(option);
             }
         }
         else
@@ -88,7 +85,7 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
     }
 
     readonly HashSet<AudioDeviceViewModel> UnmatchedDevices = [];
-    [RelayCommand] public void RebuildDevices() => Application.Current.Dispatcher.Invoke(RebuildDevicesImmediate);
+    [RelayCommand] public void RebuildDevices() => Application.Current.Dispatcher.BeginInvoke(RebuildDevicesImmediate);
     private void RebuildDevicesImmediate()
     {
         $"{this} Refreshing all input devices...".Out(ConsoleColor.DarkGray);
@@ -146,6 +143,7 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
                 AudioDevices.Remove(unmatched);
                 unmatched.Device?.Dispose();
                 unmatched.Device = null;
+                Pool.Return(unmatched);
             }
         }
         catch (Exception ex) { ex.Out($"{this} Failed to update audio devices list!\n"); }
@@ -158,7 +156,8 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
 
 
     #region Device Notification Client Implementation
-    public void OnDeviceAdded(string pwstrDeviceId)
+    public void OnDeviceAdded(string pwstrDeviceId) => Application.Current.Dispatcher.BeginInvoke(() => OnDeviceAddedImmediate(pwstrDeviceId));
+    void OnDeviceAddedImmediate(string pwstrDeviceId)
     {
         MMDevice? device = null;
         try
@@ -168,10 +167,11 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
             if (device.DataFlow != DataFlow.Capture) return;
 
             $"{this} Received new device notification. ID: {pwstrDeviceId}".Out(ConsoleColor.DarkGray);
-            if (device.ID == SelectedAudioDevice.ID)
+            if (SelectedAudioDevice is not null && device.ID == SelectedAudioDevice.ID)
             {
                 $"{this} Notified about the selected device. Device state will be updated.".Out(ConsoleColor.DarkGray);
                 SelectedAudioDevice.FriendlyName = device.FriendlyName;
+                SelectedAudioDevice.Device?.Dispose();
                 SelectedAudioDevice.Device = device;
                 device = null;
                 SerializeSelectedAudioDevice();
@@ -201,7 +201,8 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
         }
     }
 
-    public void OnDeviceStateChanged(string deviceId, DeviceState newState)
+    public void OnDeviceStateChanged(string deviceId, DeviceState newState) => Application.Current.Dispatcher.BeginInvoke(() => OnDeviceStateChangedImmediate(deviceId, newState));
+    void OnDeviceStateChangedImmediate(string deviceId, DeviceState newState)
     {
         MMDevice? device = null;
         try
@@ -231,6 +232,16 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
             }
             else
             {
+                if (newState == DeviceState.Active && (match.Device is null || match.Device.State != DeviceState.Active))
+                {
+                    // Renews reference in case state was missing a device.
+                    match.FriendlyName = device.FriendlyName;
+                    match.Device?.Dispose();
+                    match.Device = device;
+                    device = null;
+                }
+                else device.Dispose();
+
                 match.UpdateState();
                 $"{this} Device state updated.".Out(ConsoleColor.DarkGray);
             }
@@ -242,46 +253,33 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
         }
     }
 
-    public void OnDeviceRemoved(string deviceId)
+    public void OnDeviceRemoved(string deviceId) => Application.Current.Dispatcher.BeginInvoke(() => OnDeviceRemovedImmediate(deviceId));
+    void OnDeviceRemovedImmediate(string deviceId)
     {
-        MMDevice? device = null;
         try
         {
-            device = DeviceEnumerator.GetDevice(deviceId);
-            if (device is null) return;
-            if (device.DataFlow != DataFlow.Capture) return;
+            int index = AudioDevices.FindIndex(d => d.ID == deviceId);
+            if (index == -1) return;
+            var match = AudioDevices[index];
 
-            $"{this} Received device removal notification. ID: {deviceId}".Out(ConsoleColor.DarkGray);
-            if (device.ID == SelectedAudioDevice.ID)
+            $"{this} Received device removal notification for device: {match}".Out(ConsoleColor.DarkGray);
+            if (match == SelectedAudioDevice)
             {
-                SelectedAudioDevice.Device?.Dispose();
-                SelectedAudioDevice.Device = null;
+                match.Device?.Dispose();
+                match.Device = null;
                 $"{this} Notified about the selected device. Device state updated.".Out(ConsoleColor.DarkGray);
             }
             else
             {
-                int index = AudioDevices.FindIndex(d => d.ID == deviceId);
-                if (index == -1)
-                {
-                    $"{this} No device matching a removed was were listed. Skipping...".Out(ConsoleColor.DarkGray);
-                }
-                else
-                {
-                    $"{this} Delisting removed device...".Out(ConsoleColor.DarkGray);
-                    var match = AudioDevices[index];
-                    AudioDevices.RemoveAt(index);
-                    match.Device?.Dispose();
-                    match.Device = null;
-                    Pool.Return(match);
-                    $"{this} Device delisted successfully.".Out(ConsoleColor.DarkGray);
-                }
+                $"{this} Delisting removed device...".Out(ConsoleColor.DarkGray);
+                AudioDevices.RemoveAt(index);
+                match.Device?.Dispose();
+                match.Device = null;
+                Pool.Return(match);
+                $"{this} Device delisted successfully.".Out(ConsoleColor.DarkGray);
             }
         }
         catch (Exception ex) { ex.Out($"{this} Failed to add new device!\n"); }
-        finally
-        {
-            try { device?.Dispose(); } catch (Exception ex) { ex.Out($"{this} Failed to dispose retrieved device!\n"); }
-        }
     }
 
     // Note: Maybe add device switching as an option in a LocalConfiguration file.

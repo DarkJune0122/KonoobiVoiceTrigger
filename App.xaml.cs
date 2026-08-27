@@ -53,7 +53,7 @@ public partial class App : Application
             SingletonSource = new();
             _ = StartServerPipeAsync(SingletonSource.Token);
 
-            AudioCaptureService.Initialize();
+            AudioCaptureService.Instance.Initialize();
             VTSRestartTimer.Tick += MakeRestartAttempt;
             VTSRestartTimer.Interval = TimeSpan.FromSeconds(1);
             VTSRestartTimer.Start();
@@ -73,7 +73,7 @@ public partial class App : Application
         base.OnExit(e);
         SingletonSource?.Cancel();
         VTubeStudio.Instance.Stop();
-        AudioCaptureService.Terminate();
+        AudioCaptureService.Instance.Terminate();
         LogService.Terminate();
         Terminate();
         SingletonMutex?.Dispose();

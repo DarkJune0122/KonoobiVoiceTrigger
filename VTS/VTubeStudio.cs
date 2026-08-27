@@ -338,8 +338,8 @@ public sealed partial class VTubeStudio : ObservableObject
         }
         catch (Exception ex) { ex.Out(); }
 
-        SetStatus(socket, VTSStatus.Offline);
         socket.Dispose();
+        SetStatus(socket, VTSStatus.Offline);
         StopInternal(socket);
         $"{this} {nameof(VTSSocket)} stopped.".Out(ConsoleColor.Yellow);
     }
