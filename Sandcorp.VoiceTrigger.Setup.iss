@@ -1,6 +1,10 @@
 #define public Dependency_Path_NetCoreCheck "dependencies\"
 #define CompileMode "Debug"  
-#define Version "1.0.0.1"
+#define Version "1.0.2"
+// User, Admin
+#define PermissionLevel "Admin"
+// Enabled, Disable
+#define Console "Enabled"
 
 #include "CodeDependencies.iss"
 
@@ -15,13 +19,30 @@ UninstallDisplayIcon={app}\VoiceTrigger.exe
 Compression=lzma2
 SolidCompression=yes
 OutputDir=Setup
-OutputBaseFilename=Voice Trigger v{#Version}
+#if Console == "Enabled"
+#if PermissionLevel == "Admin"
+OutputBaseFilename=VoiceTrigger-debug-admin-v{#Version}
+#else
+OutputBaseFilename=VoiceTrigger-debug-v{#Version}
+#endif
+#else
+#if PermissionLevel == "Admin"
+OutputBaseFilename=VoiceTrigger-admin-v{#Version}
+#else
+OutputBaseFilename=VoiceTrigger-v{#Version}
+#endif
+#endif
+
+
 SetupIconFile=icon.ico 
 LanguageDetectionMethod=none
 
-PrivilegesRequired=lowest
+#if PermissionLevel == "Admin"
 // If includes auto-start option, as well as adding items to the windows start menu.
-// PrivilegesRequired=admin
+PrivilegesRequired=admin
+#else
+PrivilegesRequired=lowest
+#endif
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
@@ -33,11 +54,16 @@ Name: en; MessagesFile: "compiler:Default.isl"
 // Source: "VoiceTrigger\bin\{#CompileMode}\net7.0-windows\win-x64\ffmpeg\x86\*"; DestDir: "{app}\ffmpeg\x86";
 Source: "bin\{#CompileMode}\net9.0-windows\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-// [Tasks]
-// Name: startup; Description: "Automatically start on login"; GroupDescription: "{cm:AdditionalIcons}"
+#if PermissionLevel == "Admin"
+[Tasks]
+Name: startup; Description: "Automatically start on login"; GroupDescription: "{cm:AdditionalIcons}"
 
-// [Icons]
-// Name: "{commonprograms}\Voice Trigger"; Filename: "{app}\VoiceTrigger.exe"; Tasks: startup
+[Icons]
+Name: "{commonprograms}\Voice Trigger"; Filename: "{app}\VoiceTrigger.exe"; Tasks: startup
+#endif
+
+[Run]
+Filename: "{app}\VoiceTrigger.exe"; Description: "Launch application"; Flags: nowait postinstall skipifsilent
 
 [Code]
 

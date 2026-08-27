@@ -39,6 +39,7 @@ public partial class App : Application
         SingletonMutex = new(true, MutexName, out bool isNew);
         if (!isNew)
         {
+            $"Another app instance detected. This one will shutdown.".Out();
             SignalSingleton();
             Shutdown();
             return;
@@ -79,12 +80,13 @@ public partial class App : Application
             client.Connect(TimeSpan.FromSeconds(2));
             using var writer = new StreamWriter(client) { AutoFlush = true };
             writer.WriteLine(ShowWindowSignal);
+            $"Signaled an exising app to open.".Out();
         }
         catch (Exception ex)
         {
             try
             {
-                ex.Out("Failed to signal an existing singleton!");
+                ex.Out("Failed to signal the existing app!\n");
             }
             catch { }
         }

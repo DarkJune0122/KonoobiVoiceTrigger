@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -86,43 +87,66 @@ public sealed partial class VTubeStudioDiscovery : ObservableObject
     private async void Communication(ushort port, CancellationTokenSource identity)
     {
         CancellationToken token = identity.Token;
-        using UdpClient client = new(port);
-        while (!token.IsCancellationRequested)
+        UdpClient? client = null;
+        try
         {
-            try
-            {
-                var result = await client.ReceiveAsync(token);
-                ReportStatus(identity, VTSStatus.Online);
-
-                var data = JsonSerializer.Deserialize<VTSDiscoveryResponse>(result.Buffer)?.Data;
-                if (data is null)
-                {
-                    $"{this} Cannot deserialize '{nameof(VTSDiscoveryResponse)}.{nameof(VTSDiscoveryResponse.Data)}' field!".Out(ConsoleColor.Yellow);
-                    continue;
-                }
-
-                $"{this} Received Discovery data:\n{data}".Out(ConsoleColor.Gray);
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    // Note: Running multiple VTuber studios at the same time is not supported at the moment.
-                    VTSActive = data.Active;
-                    VTSPort = data.Port;
-                    VTSInstanceID = data.InstanceID ?? string.Empty;
-                    VTSWindowTitle = data.WindowTitle ?? string.Empty;
-                    OnInformationUpdated?.Invoke(this);
-                });
-            }
-            catch (Exception ex)
-            {
-                ReportStatus(identity, VTSStatus.Pending);
-                ex.Out(ToString());
-                await Task.Delay(2000);
-                $"{this} Restarting...".Out();
-            }
-            await Task.Delay(300);
+            client = new();
+            client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            //client.EnableBroadcast = true; // Option for sending - not receiving broadcasts.
+            client.Client.Bind(new IPEndPoint(IPAddress.Any, port));
+        }
+        catch (Exception ex)
+        {
+            ex.Out($"{this} Cannot start listening to the VTubeStudio precense signals!\n");
+            client?.Dispose();
+            throw;
         }
 
-        ReportStatus(identity, VTSStatus.Offline);
+        // Micro-delay to ensure the status have changed.
+        try
+        {
+            await Task.Delay(1);
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    var result = await client.ReceiveAsync(token);
+                    ReportStatus(identity, VTSStatus.Online);
+
+                    var data = JsonSerializer.Deserialize<VTSDiscoveryResponse>(result.Buffer)?.Data;
+                    if (data is null)
+                    {
+                        $"{this} Cannot deserialize '{nameof(VTSDiscoveryResponse)}.{nameof(VTSDiscoveryResponse.Data)}' field!".Out(ConsoleColor.Yellow);
+                        continue;
+                    }
+
+                    $"{this} Received Discovery data:\n{data}".Out(ConsoleColor.Gray);
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        // Note: Running multiple VTuber studios at the same time is not supported at the moment.
+                        VTSActive = data.Active;
+                        VTSPort = data.Port;
+                        VTSInstanceID = data.InstanceID ?? string.Empty;
+                        VTSWindowTitle = data.WindowTitle ?? string.Empty;
+                        OnInformationUpdated?.Invoke(this);
+                    });
+                }
+                catch (Exception ex)
+                {
+                    ReportStatus(identity, VTSStatus.Pending);
+                    ex.Out(ToString());
+                    await Task.Delay(2000);
+                    $"{this} Restarting...".Out();
+                }
+                await Task.Delay(300);
+            }
+
+            ReportStatus(identity, VTSStatus.Offline);
+        }
+        finally
+        {
+            client?.Dispose();
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
