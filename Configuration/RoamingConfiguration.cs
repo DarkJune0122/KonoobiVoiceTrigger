@@ -1,17 +1,10 @@
 ﻿using System.Text.Json.Serialization;
-using VoiceTrigger.Services;
 
 namespace VoiceTrigger.Configuration;
 
-public sealed class AudioDeviceDescriptor(string id, string name)
-{
-    public string ID = id;
-    public string FriendlyName = name;
-}
-
 public sealed class RoamingConfiguration : ConfigurationTemplate
 {
-    [JsonIgnore] protected override string FilePath => ConfigurationService.RoamingConfigurationFilePath;
+    [JsonIgnore] protected override string FilePath => RoamingConfigurationFilePath;
 
     [JsonInclude] public double ActivationPower { get; set; } = 1;
     [JsonInclude] public double NormalActivationDuration { get; set; } = 7;

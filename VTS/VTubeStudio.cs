@@ -157,7 +157,7 @@ public sealed partial class VTubeStudio : ObservableObject
                         $"{this} Cannot restore previous session from a response:\n{response}".Out(ConsoleColor.Yellow);
                     }
 
-                    TokenRestoreEnd:;
+                TokenRestoreEnd:;
                 }
 
                 // Authentication.

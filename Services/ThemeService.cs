@@ -1,5 +1,4 @@
-﻿using System.Windows.Media;
-using Wpf.Ui.Appearance;
+﻿using Wpf.Ui.Appearance;
 
 namespace VoiceTrigger.Services;
 

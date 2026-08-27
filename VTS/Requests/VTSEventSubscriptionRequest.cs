@@ -5,7 +5,7 @@ using VoiceTrigger.VTS.Packets;
 namespace VoiceTrigger.VTS.Requests;
 
 public sealed class VTSEventSubscriptionRequest : VTSRequest<VTSEventSubscriptionRequestData>
-{ 
+{
     [JsonPropertyName("messageType")] public override string? MessageType { get; set; } = "EventSubscriptionRequest";
 }
 public sealed class VTSEventSubscriptionRequestData : VTSRequestData
