@@ -1,5 +1,4 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
@@ -8,97 +7,62 @@ using VoiceTrigger.VTS.Requests;
 
 namespace VoiceTrigger.VTS;
 
-public sealed partial class ConcurrentTokenStorage : ObservableObject
+/// <summary>
+/// Describes VTubeStudio instance.
+/// </summary>
+public sealed partial class VTSEndPoint : ObservableObject
 {
     /// <summary>
-    /// Directory to create, at which token will be stored.
+    /// Whether VTubeStudio can be found in the up-stream discovery data.
     /// </summary>
-    public string FileDirectory { get; } = AppDomain.CurrentDomain.BaseDirectory;
-    /// <summary>
-    /// Path where file exists.
-    /// </summary>
-    public string FilePath { get; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "vts-auth");
-
-    // Regular semaphore, as it is used for I/O operations.
-    // I/O operations might take a while, due to hardware stalls, such as user having to spin-up the HDD for a few seconds.
-    // We would have used SemaphoreSlim if waiting times were expected to be very short, where spin-locking is an option.
-    // More info: https://learn.microsoft.com/en-us/dotnet/standard/threading/semaphore-and-semaphoreslim
-    readonly Semaphore Semaphore = new(0, 1);
-    Task<string?>? IOTask = null;
-
-    /// <returns>
-    /// A non-null string when token is found.
-    /// <see langword="null"/> if token is invalidated, or cannot be loaded.
-    /// </returns>
-    public async ValueTask<string?> GetToken()
-    {
-        await Semaphore..WaitAsync();
-        try
-        {
-            return await (IOTask ??= ReaderTask());
-        }
-        catch (Exception ex) { ex.Out(ToString()); }
-        finally { Semaphore.Release(); }
-        return null;
-    }
-
-    async Task<string?> ReaderTask()
-    {
-        if (!File.Exists(FilePath))
-            return null;
-
-        string token = await File.ReadAllTextAsync(FilePath);
-        if (string.IsNullOrEmpty(token))
-            return null;
-
-        return token;
-    }
-
-    public async ValueTask SetToken(string token)
-    {
-        await Semaphore.WaitAsync();
-        try
-        {
-            await File.WriteAllTextAsync(FilePath, token);
-        }
-        catch (Exception ex) { ex.Out(ToString()); }
-        finally { Semaphore.Release(); }
-    }
-
-    public async ValueTask DeleteToken()
-    {
-        await Semaphore.WaitAsync();
-        try
-        {
-            if (File.Exists(FilePath))
-                File.Delete(FilePath);
-        }
-        catch (Exception ex) { ex.Out(ToString()); }
-        finally { Semaphore.Release(); }
-    }
-
-    public override string ToString() => $"[{nameof(ConcurrentTokenStorage)}]";
-}
-
-public sealed partial class VTubeStudioEndPoint : ObservableObject
-{
-
-}
-
-public sealed partial class VTubeStudioConnection : ObservableObject
-{
-    [ObservableProperty] public partial VTSStatus Status { get; set; }
+    /// <remarks>
+    /// If this value is ever set to <see langword="false"/> - you can consider end-point to be invalid.
+    /// </remarks>
+    [ObservableProperty] public partial bool Observed { get; set; }
     /// <summary>
     /// Whether VTube Studio application instance is active.
     /// Assumption: Plugins will not be able to connect while instance is inactive.
     /// This can indicate API access setting being disabled in the settings.
     /// </summary>
     [ObservableProperty] public partial bool Active { get; set; }
+    [ObservableProperty] public partial ushort Port { get; set; }
+    [ObservableProperty] public partial string InstanceID { get; set; }
+    [ObservableProperty] public partial string WindowTitle { get; set; }
+}
+/*
+"active": false,
+"port": 8001,
+"instanceID": "93aa0d0494304fddb057ae8a295c4e59",
+"windowTitle": "VTube Studio"
+*/
 
+public sealed partial class VTSConnection : ObservableObject, IDisposable
+{
+    [ObservableProperty] public partial VTSEndPoint EndPoint { get; private set; }
+    [ObservableProperty] public partial VSTPlugin Plugin { get; private set; }
+    [ObservableProperty] public partial VTSStatus Status { get; set; }
     [ObservableProperty] public partial bool Authenticated { get; set; }
+
+    CancellationToken Token;
+
+    /// <summary>
+    /// Collects provided 
+    /// </summary>
+    /// <param name="plugin"></param>
+    public async Task<bool> ConnectAsync(VTSEndPoint VTubeStudioPlugin plugin, CancellationToken token)
+    {
+        
+    }
+
+    public void Dispose()
+    {
+        throw new NotImplementedException();
+    }
+
+    public override string ToString() => $"[{nameof(VTSConnection)}]";
 }
 
-public sealed partial class VTubeStudioDiscovery : ObservableObject
+public sealed partial class VTSDiscovery : ObservableObject
 {
     public enum Status : byte
     {
@@ -106,48 +70,58 @@ public sealed partial class VTubeStudioDiscovery : ObservableObject
         Active,
     }
 
-    public static readonly VTubeStudioDiscovery Instance = new();
+    public static readonly VTSDiscovery Instance = new();
 
-    public delegate void UpdateEventHandler(VTubeStudioDiscovery service);
+    public delegate void UpdateEventHandler(VTSDiscovery service);
 
     public event UpdateEventHandler? OnInformationUpdated;
 
-    [ObservableProperty] public partial VTSStatus Status { get; private set; }
+    // Note: what to do with UI callbacks? How to syncronize them with UI?
+    //  Maybe we can run syncronizaation code on VM interfacing VTSDiscovery system?
+    [ObservableProperty] public partial bool Active { get; set; }
     [ObservableProperty] public partial ushort Port { get; set; } = 47779;
-    [ObservableProperty] public partial bool VTSActive { get; private set; } = false;
-    [ObservableProperty] public partial ushort VTSPort { get; private set; } = 0;
-    [ObservableProperty] public partial string VTSInstanceID { get; private set; } = string.Empty;
-    [ObservableProperty] public partial string VTSWindowTitle { get; private set; } = string.Empty;
+    [ObservableProperty] public partial double RestartDelay { get; set; } = 2;
 
-    readonly HashSet<object> Requests = [];
     CancellationTokenSource? Identity;
+    readonly Lock Lock = new();
 
-    public readonly struct Scope(VTubeStudioDiscovery service, object user) : IDisposable
+    public void Start()
     {
-        public void Dispose() => service.Release(user);
-    }
-
-    public Scope RequestScope(object user)
-    {
-        Request(user);
-        return new(this, user);
-    }
-    public void Request(object user)
-    {
-        lock (Requests)
+        lock (Lock)
         {
-            if (Requests.Count == 0 && Requests.Add(user))
-                Application.Current.Dispatcher.Invoke(StartImmediate);
+            if (Active)
+            {
+                $"{this} Discovery system is already started.".Out(ConsoleColor.Yellow);
+                return;
+            }
+
+            $"{this} Starting VTubeStudio discovery system...".Out();
+            try
+            {
+                $"{this} Started successfully.".Out();
+                return;
+            }
+            catch (Exception ex) { ex.Out($"{this} Failed to start! Reattempting in ({RestartDelay}) seconds."); }
+            try
+            {
+                Task.Delay(TimeSpan.FromSeconds(RestartDelay))
+                    .ContinueWith(static async (state) => , this);
+            }
+            catch (Exception ex)
+            {
+                ex.Out($"{this} Failed to schedule a restart! VTubeStudio integration will not restart this session!");
+            }
         }
     }
 
-    public void Release(object user)
+    async ValueTask Restart()
     {
-        lock (Requests)
-        {
-            if (Requests.Remove(user) && Requests.Count == 0)
-                Application.Current.Dispatcher.Invoke(StopImmediate);
-        }
+
+    }
+
+    public void Stop()
+    {
+
     }
 
     //[RelayCommand] public void Start() => Application.Current.Dispatcher.Invoke(StartImmediate);
@@ -265,5 +239,5 @@ public sealed partial class VTubeStudioDiscovery : ObservableObject
         }
     }
 
-    public override string ToString() => $"[{nameof(VTubeStudioDiscovery)}]";
+    public override string ToString() => $"[{nameof(VTSDiscovery)}]";
 }
