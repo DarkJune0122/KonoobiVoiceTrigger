@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="../../SoG/VTSPlugin/VTSPlugin.csproj" Id="9a6a1861-3024-46db-9977-30b7c3ed30f4" />
   <Project Path="VoiceTrigger.csproj" />
 </Solution>

@@ -101,6 +101,7 @@
     <PackageReference Include="JeremyAnsel.HLSL.Targets" Version="2.0.35" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="VTS-Sharp" Version="2.4.1" />
     <!--<PackageReference Include="VTS-Sharp" Version="2.4.1" />-->
     <PackageReference Include="WPF-UI" Version="4.3.0" />
     <PackageReference Include="WPF-UI.Tray" Version="4.3.0" />

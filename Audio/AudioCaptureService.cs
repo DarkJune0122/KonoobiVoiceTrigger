@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
+using NAudio.Wave;
 using System.Collections.ObjectModel;
 using VoiceTrigger.Collections;
 using VoiceTrigger.Collections.Pooling;
@@ -42,8 +43,21 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
         }
     }
 
-    public void Initialize() { DeviceEnumerator.RegisterEndpointNotificationCallback(this); RebuildDevicesImmediate(); }
-    public void Terminate() { DeviceEnumerator.UnregisterEndpointNotificationCallback(this); }
+    public void Initialize()
+    {
+        DeviceEnumerator.RegisterEndpointNotificationCallback(this);
+        RebuildDevicesImmediate();
+        WaveIn wave = new();
+        wave.
+        wave.DeviceNumber;
+        wave.StartRecording();
+
+        Was
+    }
+    public void Terminate()
+    {
+        DeviceEnumerator.UnregisterEndpointNotificationCallback(this);
+    }
 
     partial void OnSelectedAudioDeviceChanged(AudioDeviceViewModel? value)
     {

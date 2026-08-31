@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
@@ -7,11 +8,108 @@ using VoiceTrigger.VTS.Requests;
 
 namespace VoiceTrigger.VTS;
 
+public sealed partial class ConcurrentTokenStorage : ObservableObject
+{
+    /// <summary>
+    /// Directory to create, at which token will be stored.
+    /// </summary>
+    public string FileDirectory { get; } = AppDomain.CurrentDomain.BaseDirectory;
+    /// <summary>
+    /// Path where file exists.
+    /// </summary>
+    public string FilePath { get; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "vts-auth");
+
+    // Regular semaphore, as it is used for I/O operations.
+    // I/O operations might take a while, due to hardware stalls, such as user having to spin-up the HDD for a few seconds.
+    // We would have used SemaphoreSlim if waiting times were expected to be very short, where spin-locking is an option.
+    // More info: https://learn.microsoft.com/en-us/dotnet/standard/threading/semaphore-and-semaphoreslim
+    readonly Semaphore Semaphore = new(0, 1);
+    Task<string?>? IOTask = null;
+
+    /// <returns>
+    /// A non-null string when token is found.
+    /// <see langword="null"/> if token is invalidated, or cannot be loaded.
+    /// </returns>
+    public async ValueTask<string?> GetToken()
+    {
+        await Semaphore..WaitAsync();
+        try
+        {
+            return await (IOTask ??= ReaderTask());
+        }
+        catch (Exception ex) { ex.Out(ToString()); }
+        finally { Semaphore.Release(); }
+        return null;
+    }
+
+    async Task<string?> ReaderTask()
+    {
+        if (!File.Exists(FilePath))
+            return null;
+
+        string token = await File.ReadAllTextAsync(FilePath);
+        if (string.IsNullOrEmpty(token))
+            return null;
+
+        return token;
+    }
+
+    public async ValueTask SetToken(string token)
+    {
+        await Semaphore.WaitAsync();
+        try
+        {
+            await File.WriteAllTextAsync(FilePath, token);
+        }
+        catch (Exception ex) { ex.Out(ToString()); }
+        finally { Semaphore.Release(); }
+    }
+
+    public async ValueTask DeleteToken()
+    {
+        await Semaphore.WaitAsync();
+        try
+        {
+            if (File.Exists(FilePath))
+                File.Delete(FilePath);
+        }
+        catch (Exception ex) { ex.Out(ToString()); }
+        finally { Semaphore.Release(); }
+    }
+
+    public override string ToString() => $"[{nameof(ConcurrentTokenStorage)}]";
+}
+
+public sealed partial class VTubeStudioEndPoint : ObservableObject
+{
+
+}
+
+public sealed partial class VTubeStudioConnection : ObservableObject
+{
+    [ObservableProperty] public partial VTSStatus Status { get; set; }
+    /// <summary>
+    /// Whether VTube Studio application instance is active.
+    /// Assumption: Plugins will not be able to connect while instance is inactive.
+    /// This can indicate API access setting being disabled in the settings.
+    /// </summary>
+    [ObservableProperty] public partial bool Active { get; set; }
+
+    [ObservableProperty] public partial bool Authenticated { get; set; }
+}
+
 public sealed partial class VTubeStudioDiscovery : ObservableObject
 {
+    public enum Status : byte
+    {
+        Inactive,
+        Active,
+    }
+
     public static readonly VTubeStudioDiscovery Instance = new();
 
     public delegate void UpdateEventHandler(VTubeStudioDiscovery service);
+
     public event UpdateEventHandler? OnInformationUpdated;
 
     [ObservableProperty] public partial VTSStatus Status { get; private set; }

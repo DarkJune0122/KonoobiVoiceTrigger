@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using VoiceTrigger.Audio;
 using VoiceTrigger.Services;
 using VoiceTrigger.VTS;
+using VTS.Core;
 
 namespace VoiceTrigger;
 /// <summary>
@@ -48,8 +49,9 @@ public partial class App : Application
 
         try
         {
-            Initialize();
             LogService.Initialize();
+            Initialize();
+            //VTSService.Instance.Initialize();
             SingletonSource = new();
             _ = StartServerPipeAsync(SingletonSource.Token);
 
@@ -73,9 +75,10 @@ public partial class App : Application
         base.OnExit(e);
         SingletonSource?.Cancel();
         VTubeStudio.Instance.Stop();
+        //VTSService.Instance.Terminate();
         AudioCaptureService.Instance.Terminate();
-        LogService.Terminate();
         Terminate();
+        LogService.Terminate();
         SingletonMutex?.Dispose();
     }
 
