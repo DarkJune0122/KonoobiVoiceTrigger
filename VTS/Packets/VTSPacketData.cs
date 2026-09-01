@@ -2,5 +2,5 @@
 
 public abstract class VTSPacketData
 {
-    public override string ToString() => VTSPackets.ToLoggingString(this);
+    public override string ToString() => VTSPackets.ToLoggingString(this, GetType());
 }

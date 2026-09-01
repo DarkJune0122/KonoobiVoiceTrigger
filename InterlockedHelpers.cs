@@ -48,10 +48,10 @@ public static class InterlockedHelpers
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ushort Read(ref ushort field) => Interlocked.CompareExchange(ref field, default, default);
 
-    /// <inheritdoc cref="Interlocked.CompareExchange{T}(ref T?, T?, T?)"/>
+    /// <inheritdoc cref="Interlocked.CompareExchange{T}(ref T, T, T)"/>
     [return: NotNullIfNotNull(nameof(field))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T? Read<T>(ref T? field) => Interlocked.CompareExchange(ref field, default, default);
+    public static T Read<T>(ref T field) => Interlocked.CompareExchange(ref field!, default, default)!;
 
     /// <inheritdoc cref="Interlocked.CompareExchange(ref sbyte, sbyte, sbyte)"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

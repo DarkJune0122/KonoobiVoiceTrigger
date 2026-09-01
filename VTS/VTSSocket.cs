@@ -2,7 +2,7 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using VoiceTrigger.VTS.Packets;
+using VoiceTrigger.Logging;
 
 namespace VoiceTrigger.VTS;
 

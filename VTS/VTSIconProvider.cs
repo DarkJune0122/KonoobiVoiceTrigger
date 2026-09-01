@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using VoiceTrigger.Logging;
 
 namespace VoiceTrigger.VTS;
 

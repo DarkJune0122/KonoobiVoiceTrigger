@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Text.Json.Serialization;
+using VoiceTrigger.Logging;
 
 namespace VoiceTrigger.Configuration;
 

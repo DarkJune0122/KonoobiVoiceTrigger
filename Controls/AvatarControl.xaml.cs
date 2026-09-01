@@ -6,8 +6,9 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using VoiceTrigger.Configuration;
+using VoiceTrigger.Logging;
 using VoiceTrigger.Shaders;
-using VoiceTrigger.VTS.Packets;
+using VoiceTrigger.VTS;
 
 namespace VoiceTrigger.Controls;
 

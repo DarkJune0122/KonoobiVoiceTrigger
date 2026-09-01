@@ -1,4 +1,5 @@
-﻿using VTS.Core;
+﻿using VoiceTrigger.Logging;
+using VTS.Core;
 
 namespace VoiceTrigger.VTS;
 

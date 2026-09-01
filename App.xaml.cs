@@ -3,7 +3,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Windows.Threading;
 using VoiceTrigger.Audio;
-using VoiceTrigger.Services;
+using VoiceTrigger.Logging;
 using VoiceTrigger.VTS;
 
 namespace VoiceTrigger;
@@ -48,7 +48,7 @@ public partial class App : Application
 
         try
         {
-            LogService.Initialize();
+            LoggerService.Instance.Initialize();
             Initialize();
             VTSDiscoveryService.Instance.Initialize();
             //VTSService.Instance.Initialize();
@@ -56,11 +56,45 @@ public partial class App : Application
             _ = StartServerPipeAsync(SingletonSource.Token);
 
             AudioCaptureService.Instance.Initialize();
-            VTSRestartTimer.Tick += MakeRestartAttempt;
-            VTSRestartTimer.Interval = TimeSpan.FromSeconds(1);
-            VTSRestartTimer.Start();
+            //VTSRestartTimer.Tick += MakeRestartAttempt;
+            //VTSRestartTimer.Interval = TimeSpan.FromSeconds(1);
+            //VTSRestartTimer.Start();
         }
         catch (Exception ex) { ex.Out("Exception during app startup! Shutting down..."); Shutdown(); }
+    }
+
+    enum ExitStage : byte
+    {
+        Normal,
+        Terminating,
+        Terminated,
+    }
+
+    private readonly Lock InterruptLock = new();
+    private ExitStage InterruptStage;
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        base.OnSessionEnding(e);
+        lock (InterruptLock)
+        {
+            if (InterruptStage == ExitStage.Terminated)
+            {
+                return; // Allows closing.
+            }
+            else if (InterruptStage == ExitStage.Terminating)
+            {
+                e.Cancel = true; // Cancels all termination attempts until application terminates from the fist one.
+                return;
+            }
+            // Starts termination sequence.
+            InterruptStage = ExitStage.Terminating;
+            e.Cancel = true;
+        }
+
+        // Spawns a termination process.
+        // By the end of it application will close by itself.
+        ServiceTermination();
     }
 
     private void MakeRestartAttempt(object? sender, EventArgs e)
@@ -70,16 +104,28 @@ public partial class App : Application
             VTubeStudio.Instance.Start();
     }
 
+    async void ServiceTermination()
+    {
+        // Note: Doesn't work. Application closes before termination.
+        // TODO: Fix termination sequence, either by providing async methods, or by properly releasing LoggerService from a Main Thread.
+        try
+        {
+            SingletonSource?.Cancel();
+            //VTubeStudio.Instance.Stop();
+            //VTSService.Instance.Terminate();
+            AudioCaptureService.Instance.Terminate();
+            VTSDiscoveryService.Instance.Terminate();
+            Terminate();
+            await LoggerService.Instance.Terminate();
+        }
+        catch (Exception ex) { ex.Out($"Exception while terminating the entire app!\n"); }
+        lock (InterruptLock) InterruptStage = ExitStage.Terminated;
+        Shutdown();
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         base.OnExit(e);
-        SingletonSource?.Cancel();
-        VTubeStudio.Instance.Stop();
-        //VTSService.Instance.Terminate();
-        AudioCaptureService.Instance.Terminate();
-        VTSDiscoveryService.Instance.Terminate();
-        Terminate();
-        LogService.Terminate();
         SingletonMutex?.Dispose();
     }
 

@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
 using VoiceTrigger.Extensions;
+using VoiceTrigger.Logging;
 using VoiceTrigger.VTS.Events;
 using VoiceTrigger.VTS.Packets;
 using VoiceTrigger.VTS.Requests;
@@ -346,36 +347,38 @@ public sealed partial class VTubeStudio : ObservableObject
 
     async Task<ushort> DiscoverPort(CancellationToken token)
     {
-        $"{this} Discovering port...".Out(ConsoleColor.Yellow);
-        using var scope = VTSDiscoveryService.Instance.RequestScope(this);
-        TaskCompletionSource<ushort> PortSource = new();
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            if (VTSDiscoveryService.Instance.VTSActive)
-            {
-                PortSource.TrySetResult(VTSDiscoveryService.Instance.VTSPort);
-                return;
-            }
+        await Task.CompletedTask;
+        throw new NotImplementedException();
+        //$"{this} Discovering port...".Out(ConsoleColor.Yellow);
+        //using var scope = VTSDiscoveryService.Instance.RequestScope(this);
+        //TaskCompletionSource<ushort> PortSource = new();
+        //Application.Current.Dispatcher.Invoke(() =>
+        //{
+        //    if (VTSDiscoveryService.Instance.VTSActive)
+        //    {
+        //        PortSource.TrySetResult(VTSDiscoveryService.Instance.VTSPort);
+        //        return;
+        //    }
 
-            VTSDiscoveryService.Instance.OnInformationUpdated += UpdateHandler;
-            void UpdateHandler(VTSDiscoveryService service)
-            {
-                if (service.VTSActive)
-                {
-                    service.OnInformationUpdated -= UpdateHandler;
-                    PortSource.TrySetResult(service.VTSPort);
-                }
-            }
-        });
+        //    VTSDiscoveryService.Instance.OnInformationUpdated += UpdateHandler;
+        //    void UpdateHandler(VTSDiscoveryService service)
+        //    {
+        //        if (service.VTSActive)
+        //        {
+        //            service.OnInformationUpdated -= UpdateHandler;
+        //            PortSource.TrySetResult(service.VTSPort);
+        //        }
+        //    }
+        //});
 
-        using (token.Register(() => PortSource.TrySetCanceled()))
-        {
-            await PortSource.Task;
-        }
+        //using (token.Register(() => PortSource.TrySetCanceled()))
+        //{
+        //    await PortSource.Task;
+        //}
 
-        token.ThrowIfCancellationRequested();
-        $"{this} Port discovered! Port: {PortSource.Task.Result}".Out();
-        return PortSource.Task.Result;
+        //token.ThrowIfCancellationRequested();
+        //$"{this} Port discovered! Port: {PortSource.Task.Result}".Out();
+        //return PortSource.Task.Result;
     }
 
     async Task Receive(VTSSocket socket)

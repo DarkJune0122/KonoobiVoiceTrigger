@@ -3,65 +3,38 @@ using System.Collections.ObjectModel;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
+using VoiceTrigger.Logging;
 using VoiceTrigger.VTS.Requests;
 
 namespace VoiceTrigger.VTS;
 
-/// <summary>
-/// Describes VTubeStudio instance.
-/// </summary>
-public sealed partial class VTSEndPoint : ObservableObject
-{
-    /// <summary>
-    /// Whether VTubeStudio can be found in the up-stream discovery data.
-    /// </summary>
-    /// <remarks>
-    /// If this value is ever set to <see langword="false"/> - you can consider end-point to be invalid.
-    /// </remarks>
-    [ObservableProperty] public partial bool Observed { get; set; }
-    /// <summary>
-    /// Whether VTube Studio application instance is active.
-    /// Assumption: Plugins will not be able to connect while instance is inactive.
-    /// This can indicate API access setting being disabled in the settings.
-    /// </summary>
-    [ObservableProperty] public partial bool Active { get; set; }
-    [ObservableProperty] public partial ushort Port { get; set; }
-    [ObservableProperty] public partial string InstanceID { get; set; }
-    [ObservableProperty] public partial string WindowTitle { get; set; }
-}
-/*
-"active": false,
-"port": 8001,
-"instanceID": "93aa0d0494304fddb057ae8a295c4e59",
-"windowTitle": "VTube Studio"
-*/
+//public sealed partial class VTSConnection : ObservableObject, IDisposable
+//{
+//    [ObservableProperty] public partial VTSEndPoint EndPoint { get; private set; }
+//    [ObservableProperty] public partial VSTPlugin Plugin { get; private set; }
+//    [ObservableProperty] public partial VTSStatus Status { get; set; }
+//    [ObservableProperty] public partial bool Authenticated { get; set; }
 
-public sealed partial class VTSConnection : ObservableObject, IDisposable
-{
-    [ObservableProperty] public partial VTSEndPoint EndPoint { get; private set; }
-    [ObservableProperty] public partial VSTPlugin Plugin { get; private set; }
-    [ObservableProperty] public partial VTSStatus Status { get; set; }
-    [ObservableProperty] public partial bool Authenticated { get; set; }
+//    CancellationToken Token;
 
-    CancellationToken Token;
+//    /// <summary>
+//    /// Collects provided 
+//    /// </summary>
+//    /// <param name="plugin"></param>
+//    public async Task<bool> ConnectAsync(VTSEndPoint VTubeStudioPlugin plugin, CancellationToken token)
+//    {
 
-    /// <summary>
-    /// Collects provided 
-    /// </summary>
-    /// <param name="plugin"></param>
-    public async Task<bool> ConnectAsync(VTSEndPoint VTubeStudioPlugin plugin, CancellationToken token)
-    {
+//    }
 
-    }
+//    public void Dispose()
+//    {
+//        throw new NotImplementedException();
+//    }
 
-    public void Dispose()
-    {
-        throw new NotImplementedException();
-    }
-
-    public override string ToString() => $"[{nameof(VTSConnection)}]";
-}
+//    public override string ToString() => $"[{nameof(VTSConnection)}]";
+//}
 
 /// <remarks>
 /// All events are NOT UI-thread safe!
@@ -77,6 +50,10 @@ public sealed class VTSDiscoveryService : IService
 {
     // This value never changes, so we will not implement a property for it.
     public const ushort KnownVTubeStudioDiscoveryPort = 47779;
+    public const double DefaultRestartDelay = 2;
+    public const double DefaultKeepAliveCheckInterval = 5;
+    public const double DefaultEndPointMaxKeepAliveInterval = 60;
+    public const long MinimumEndPointMaxKeepAliveIntervalMs = 250;
 
     enum StartResult : byte
     {
@@ -95,10 +72,16 @@ public sealed class VTSDiscoveryService : IService
     public static readonly VTSDiscoveryService Instance = new();
 
     public delegate void ActiveChangedEventHandler(bool active);
+    public delegate void EndPointAddedEventHandler(VTSEndPoint ep);
+    public delegate void EndPointRemovedEventHandler(VTSEndPoint ep);
+    public delegate void EndPointsChangedEventHandler(IReadOnlyList<VTSEndPoint> endPoints);
 
     public event ActiveChangedEventHandler? OnActiveChanged;
+    public event EndPointAddedEventHandler? OnEndPointAdded;
+    public event EndPointRemovedEventHandler? OnEndPointRemoved;
+    public event EndPointsChangedEventHandler? OnEndPointsChanged;
 
-    public ObservableCollection<VTSEndPoint> EndPoints { get; } = [];
+    public IReadOnlyList<VTSEndPoint> EndPoints => m_EndPoints;
 
     // Note: callback syncronization with UI happens on VM level.
     public bool Active
@@ -118,21 +101,39 @@ public sealed class VTSDiscoveryService : IService
     /// Only updated during <see cref="Initialize"/>.
     /// </summary>
     public ushort Port { get; private set; } = KnownVTubeStudioDiscoveryPort;
-    public double RestartDelay
+    public static double RestartDelay
     {
-        get => Interlocked.CompareExchange(ref field, 0, 1); // Returns current value, without changing it.
-        private set => Interlocked.Exchange(ref field, value);
-    } = 2;
+        get => Roaming.VTubeStudioDiscoveryRestartDelay;
+        set => Roaming.VTubeStudioDiscoveryRestartDelay = value;
+    }
+    public static double KeepAliveCheckInterval
+    {
+        get => Roaming.KeepAliveCheckInterval;
+        set => Roaming.KeepAliveCheckInterval = value;
+    }
+    public static double EndPointMaxKeepAliveInterval
+    {
+        get => Roaming.EndPointMaxKeepAliveInterval;
+        set => Roaming.EndPointMaxKeepAliveInterval = value;
+    }
 
     static int WorkerCounter;
+    readonly List<VTSEndPoint> m_EndPoints = [];
     readonly Lock Lock = new();
     CancellationTokenSource? Identity;
 
     /// <inheritdoc/>
-    public void Initialize() => Port = Roaming.VTubeStudioDiscoveryPort;
+    public void Initialize()
+    {
+        Port = Roaming.VTubeStudioDiscoveryPort;
+        Start();
+    }
 
     /// <inheritdoc/>
-    public void Terminate() { }
+    public void Terminate()
+    {
+        Stop();
+    }
 
     /// <summary>
     /// Stops system if it is active, and starts it again.
@@ -193,6 +194,7 @@ public sealed class VTSDiscoveryService : IService
     StartResult StartInternal()
     {
         Lock.Enter();
+        CancellationTokenSource? identity = null;
         if (Identity is not null)
         {
             Lock.Exit(); // Quick lock, without initializing a try block.
@@ -201,24 +203,77 @@ public sealed class VTSDiscoveryService : IService
         try // Try block is required if any activation events throw an exception.
         {
             Active = true; // Active is set first, to avoid allocating an identiy class on exception.
-            CancellationTokenSource? identity = new();
+            identity = new();
             Identity = identity;
-            Worker(identity, NextWorkerCounter().ToString());
+            string id = NextWorkerCounter().ToString();
+            ReaderWorker(identity, id);
+            TimeoutWorker(identity, id);
             return StartResult.Success;
         }
         catch (Exception ex)
         {
             ex.Out(this);
-            try { Identity = null; Active = false; }
+            try { Identity = null; identity?.Cancel(); Active = false; }
             catch (Exception ex2) { ex2.Out($"{this} Exception while reverting state in a start method!\n"); }
             return StartResult.Failed;
         }
         finally { Lock.Exit(); }
     }
 
-    async void Worker(CancellationTokenSource identity, string id)
+    private async void TimeoutWorker(CancellationTokenSource identity, string id)
     {
-        $"[{this}] Starting worker #{id}...".Out(ConsoleColor.Gray);
+        $"{this} Timeout worker #{id} started.".Out(ConsoleColor.Gray);
+        await Task.Yield(); // Makes sure that all service states are initialized before worker actually starts.
+        CancellationToken token = identity.Token;
+        List<VTSEndPoint> endPoints = [];
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), token);
+                long maxAllowed = Math.Max(
+                    val1: MinimumEndPointMaxKeepAliveIntervalMs,
+                    val2: (long)TimeSpan.FromSeconds(EndPointMaxKeepAliveInterval).TotalMilliseconds);
+                lock (Lock)
+                {
+                    long tick = Environment.TickCount64;
+                    foreach (var ep in m_EndPoints)
+                    {
+                        long delta = tick - ep.LastKeepAliveTick;
+                        if (delta > maxAllowed) endPoints.Add(ep);
+                    }
+
+                    foreach (var ep in endPoints)
+                    {
+                        m_EndPoints.Remove(ep);
+                        ep.Kill();
+                        OnEndPointRemoved?.Invoke(ep);
+                        OnEndPointsChanged?.Invoke(m_EndPoints);
+                    }
+                }
+            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex) { ex.Out(this); }
+            finally { endPoints.Clear(); }
+        }
+        lock (Lock)
+        {
+            if (Identity == identity)
+            {
+                Identity = null;
+                try { identity.Cancel(); }
+                catch (Exception ex) { ex.Out($"{this} Exception during identity cancellation of a timeout worker #{id}!\n"); }
+                try { Active = false; }
+                catch (Exception ex) { ex.Out($"{this} Exception during identity deactivation of a timeout worker #{id}!\n"); }
+            }
+        }
+        $"{this} Timeout worker #{id} quit.".Out(ConsoleColor.Gray);
+    }
+
+    private async void ReaderWorker(CancellationTokenSource identity, string id)
+    {
+        $"{this} Starting communication worker #{id}...".Out(ConsoleColor.Gray);
+        await Task.Yield(); // Makes sure that all service states are initialized before worker actually starts.
         CancellationToken token = identity.Token;
         while (!token.IsCancellationRequested)
         {
@@ -230,6 +285,7 @@ public sealed class VTSDiscoveryService : IService
                 //client.EnableBroadcast = true; // Option for sending - not receiving broadcasts.
                 client.Client.Bind(new IPEndPoint(IPAddress.Any, Port));
 
+                $"{this} Discovery worker #{id} started on port {Port}.".Out(ConsoleColor.Gray);
                 while (!token.IsCancellationRequested)
                 {
                     // TODO: UdpClient allocates an array on each receive.
@@ -238,36 +294,81 @@ public sealed class VTSDiscoveryService : IService
                     // TODO: Report status as 'Online' when received any data for the first time.
 
                     if (result.Buffer.Length == 0) continue;
+                    VTSDiscoveryResponse? packet;
                     VTSDiscoveryResponseData data;
                     try
                     {
-                        var packet = JsonSerializer.Deserialize<VTSDiscoveryResponse>(result.Buffer);
-                        if (packet is null)
+                        packet = JsonSerializer.Deserialize<VTSDiscoveryResponse>(result.Buffer, VTSPackets.JsonOptions);
+                        if (packet is null || packet.Data is null)
                         {
-                            $"{this} Deserialized discovery data sa 'null'. Packet will be ignored.".Out(ConsoleColor.Gray);
+                            $"{this} Deserialized discovery data as 'null'. Packet will be ignored.".Out(ConsoleColor.Gray);
                             if (Roaming.LogNetworkPackets)
                             {
-                                $"{this} Packet:\n{packet}".Out(ConsoleColor.Gray);
+                                if (packet is null) $"{this} Packet: null".Out(ConsoleColor.Gray);
+                                else $"{this} Packet:\n{packet}".Out(ConsoleColor.Gray);
                             }
                             continue;
                         }
+                        data = packet.Data;
                     }
                     catch (Exception ex)
                     {
                         ex.Out($"{this} Discovery data deserialization exception! Packet will be ignored.\n");
                         if (Roaming.LogNetworkPackets)
-                            continue;
+                        {
+                            $"{this} Packet:\n{Encoding.UTF8.GetString(result.Buffer)}".Out(ConsoleColor.Gray);
+                        }
+                        continue;
                     }
 
-                    var data = JsonSerializer.Deserialize<VTSDiscoveryResponse>(result.Buffer)?.Data;
-                    if (data is null)
+                    $"{this} Received discovery packet.".Out(ConsoleColor.Gray);
+                    if (Roaming.LogNetworkPackets)
                     {
-                        $"{this} Cannot deserialize VTSDiscoveryResponse data.".Out(ConsoleColor.Red);
+                        if (packet is null) $"{this} Packet: null".Out(ConsoleColor.Gray);
+                        else $"{this} Packet:\n{packet}".Out(ConsoleColor.Gray);
+                    }
+
+                    // Note: if this will cause large stalls - fix it.
+                    lock (Lock)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        var match = m_EndPoints.FirstOrDefault(e => e.InstanceID == data.InstanceID);
+                        if (match is not null)
+                        {
+                            if (match.Port != data.Port)
+                            {
+                                $"{this} Detected port change in remote VTude Studio #{match.InstanceID}. Active connections will be killed and restarted.".Out(ConsoleColor.Yellow);
+                                m_EndPoints.Remove(match);
+                                match.Kill();
+                                OnEndPointRemoved?.Invoke(match);
+                                OnEndPointsChanged?.Invoke(m_EndPoints);
+                            }
+                            else
+                            {
+                                match.KeepAlive();
+                                match.Active = data.Active;
+                                match.WindowTitle = data.WindowTitle ?? string.Empty;
+                            }
+                        }
+                        else
+                        {
+                            var ep = new VTSEndPoint
+                            {
+                                Active = data.Active,
+                                Port = data.Port,
+                                InstanceID = data.InstanceID ?? string.Empty,
+                                WindowTitle = data.WindowTitle ?? string.Empty,
+                            };
+                            $"{this} Discovered new VTube Studio instance! #{ep.InstanceID}".Out(ConsoleColor.Gray);
+                            m_EndPoints.Add(ep);
+                            OnEndPointAdded?.Invoke(ep);
+                            OnEndPointsChanged?.Invoke(m_EndPoints);
+                        }
                     }
                 }
             }
             catch (OperationCanceledException) { break; }
-            catch (Exception ex) { ex.Out(this); break; }
+            catch (Exception ex) { ex.Out(this); }
             finally { client?.Dispose(); }
             try
             {
@@ -275,18 +376,20 @@ public sealed class VTSDiscoveryService : IService
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex) { ex.Out(this); break; }
-            $"{this} Restarting worker #{id}...".Out(ConsoleColor.Gray);
+            $"{this} Restarting discovery worker #{id}...".Out(ConsoleColor.Gray);
         }
         lock (Lock)
         {
             if (Identity == identity)
             {
                 Identity = null;
+                try { identity.Cancel(); }
+                catch (Exception ex) { ex.Out($"{this} Exception during identity cancellation of a discovery worker #{id}!\n"); }
                 try { Active = false; }
-                catch (Exception ex) { ex.Out($"{this} Exception during service state reset in worker #{id}!\n"); }
+                catch (Exception ex) { ex.Out($"{this} Exception during identity deactivation of a discovery worker #{id}!\n"); }
             }
         }
-        $"{this} Worker #{id} quit.".Out(ConsoleColor.Gray);
+        $"{this} Discovery worker #{id} quit.".Out(ConsoleColor.Gray);
     }
 
     /// <summary>
@@ -356,71 +459,6 @@ public sealed class VTSDiscoveryService : IService
             return StopResult.Failed;
         }
         finally { Lock.Exit(); }
-    }
-
-    private async void Communication(ushort port, CancellationTokenSource identity)
-    {
-        CancellationToken token = identity.Token;
-        UdpClient? client = null;
-        try
-        {
-            client = new();
-            client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            //client.EnableBroadcast = true; // Option for sending - not receiving broadcasts.
-            client.Client.Bind(new IPEndPoint(IPAddress.Any, port));
-        }
-        catch (Exception ex)
-        {
-            ex.Out($"{this} Cannot start listening to the VTubeStudio precense signals!\n");
-            client?.Dispose();
-            throw;
-        }
-
-        // Micro-delay to ensure the status have changed.
-        try
-        {
-            await Task.Delay(1);
-            while (!token.IsCancellationRequested)
-            {
-                try
-                {
-                    var result = await client.ReceiveAsync(token);
-                    ReportStatus(identity, VTSStatus.Online);
-
-                    var data = JsonSerializer.Deserialize<VTSDiscoveryResponse>(result.Buffer)?.Data;
-                    if (data is null)
-                    {
-                        $"{this} Cannot deserialize '{nameof(VTSDiscoveryResponse)}.{nameof(VTSDiscoveryResponse.Data)}' field!".Out(ConsoleColor.Yellow);
-                        continue;
-                    }
-
-                    $"{this} Received Discovery data:\n{data}".Out(ConsoleColor.Gray);
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        // Note: Running multiple VTuber studios at the same time is not supported at the moment.
-                        VTSActive = data.Active;
-                        VTSPort = data.Port;
-                        VTSInstanceID = data.InstanceID ?? string.Empty;
-                        VTSWindowTitle = data.WindowTitle ?? string.Empty;
-                        OnInformationUpdated?.Invoke(this);
-                    });
-                }
-                catch (Exception ex)
-                {
-                    ReportStatus(identity, VTSStatus.Pending);
-                    ex.Out(ToString());
-                    await Task.Delay(2000);
-                    $"{this} Restarting...".Out();
-                }
-                await Task.Delay(300);
-            }
-
-            ReportStatus(identity, VTSStatus.Offline);
-        }
-        finally
-        {
-            client?.Dispose();
-        }
     }
 
     public override string ToString() => $"[{nameof(VTSDiscoveryService)}]";

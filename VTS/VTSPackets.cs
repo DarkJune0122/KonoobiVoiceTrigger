@@ -1,11 +1,15 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VoiceTrigger.Logging;
+using VoiceTrigger.VTS.Packets;
 
-namespace VoiceTrigger.VTS.Packets;
+namespace VoiceTrigger.VTS;
 
 public static class VTSPackets
 {
+    public const string APINameJsonPropertyName = "apiName";
+    public const string APIVersionJsonPropertyName = "apiVersion";
     public const string RequestIDJsonPropertyName = "requestID";
     public const string MessageTypeJsonPropertyName = "messageType";
     /// <summary>
@@ -23,6 +27,8 @@ public static class VTSPackets
     {
         WriteIndented = true,
         AllowTrailingCommas = true,
+        TypeInfoResolver = VTSJsonTypeInfoResolver.Instance,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
         PreferredObjectCreationHandling = JsonObjectCreationHandling.Populate,
         UnknownTypeHandling = JsonUnknownTypeHandling.JsonElement,
     };
@@ -33,6 +39,8 @@ public static class VTSPackets
     {
         WriteIndented = true,
         AllowTrailingCommas = true,
+        TypeInfoResolver = VTSJsonTypeInfoResolver.Instance,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
         PreferredObjectCreationHandling = JsonObjectCreationHandling.Populate,
         UnknownTypeHandling = JsonUnknownTypeHandling.JsonElement,
     };
@@ -47,10 +55,12 @@ public static class VTSPackets
     };
 
     [return: NotNullIfNotNull(nameof(obj))]
-    public static string? ToLoggingString<T>(this T? obj)
+    public static string? ToLoggingString<T>(this T? obj, Type? type = null)
     {
         if (obj is null) return null;
-        try { return JsonSerializer.Serialize(obj, JsonLoggingOptions); }
+        type ??= typeof(T);
+
+        try { return JsonSerializer.Serialize(obj, type, JsonLoggingOptions); }
         catch (Exception ex) { ex.Out($"Cannot serialize ({typeof(T)})\n"); return string.Empty; }
     }
 }

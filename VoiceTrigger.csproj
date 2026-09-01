@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -17,7 +17,7 @@
     <PackageVersion>$(Version)</PackageVersion>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(OutputType)' == 'WinExe'">
+  <PropertyGroup Condition="'$(OutputType)' == 'Exe'">
     <DefineConstants>CONSOLE</DefineConstants>
   </PropertyGroup>
 

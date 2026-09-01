@@ -8,11 +8,34 @@ public sealed class RoamingConfiguration : ConfigurationTemplate
     [JsonIgnore] protected override string FilePath => RoamingConfigurationFilePath;
 
     [JsonInclude] public ushort VTubeStudioDiscoveryPort { get; set; } = VTSDiscoveryService.KnownVTubeStudioDiscoveryPort;
+    [JsonInclude]
+    public double VTubeStudioDiscoveryRestartDelay
+    {
+        get => InterlockedHelpers.Read(ref field);
+        set => Interlocked.Exchange(ref field, value);
+    } = VTSDiscoveryService.DefaultRestartDelay;
+
+    [JsonInclude]
+    public double KeepAliveCheckInterval
+    {
+        get => InterlockedHelpers.Read(ref field);
+        set => Interlocked.Exchange(ref field, value);
+    } = VTSDiscoveryService.DefaultKeepAliveCheckInterval;
+
+    [JsonInclude]
+    public double EndPointMaxKeepAliveInterval
+    {
+        get => InterlockedHelpers.Read(ref field);
+        set => Interlocked.Exchange(ref field, value);
+    } = VTSDiscoveryService.DefaultEndPointMaxKeepAliveInterval;
+
 #if CONSOLE
-    [JsonInclude] public bool LogNetworkPackets { get; set; } = true;
+    // TODO: Test if JsonSerializer can hale get-only properties.
+    [JsonInclude] public bool LogNetworkPackets { get; } = true;
 #else
     [JsonInclude] public bool LogNetworkPackets { get; set; } = false;
 #endif
+
     [JsonInclude]
     public double ActivationPower
     {

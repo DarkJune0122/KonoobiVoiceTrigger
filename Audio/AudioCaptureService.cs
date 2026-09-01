@@ -6,6 +6,7 @@ using NAudio.Wave;
 using System.Collections.ObjectModel;
 using VoiceTrigger.Collections;
 using VoiceTrigger.Collections.Pooling;
+using VoiceTrigger.Logging;
 
 namespace VoiceTrigger.Audio;
 
@@ -47,12 +48,12 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
     {
         DeviceEnumerator.RegisterEndpointNotificationCallback(this);
         RebuildDevicesImmediate();
-        WaveIn wave = new();
-        wave.
-        wave.DeviceNumber;
-        wave.StartRecording();
+        //WaveIn wave = new();
+        //wave.
+        //wave.DeviceNumber;
+        //wave.StartRecording();
 
-        Was
+        //Was
     }
     public void Terminate()
     {
@@ -63,11 +64,11 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
     {
         try
         {
-            $"{this} Selected audio device changing to: {value}".Out(ConsoleColor.DarkGray);
+            $"{this} Selected audio device changing to: {value}".Out(ConsoleColor.Gray);
             value?.UpdateState();
             SerializeSelectedAudioDevice();
             SelectedAudioDeviceChanged?.Invoke(value);
-            $"{this} Selected audio device changed.".Out(ConsoleColor.DarkGray);
+            $"{this} Selected audio device changed.".Out(ConsoleColor.Gray);
         }
         catch (Exception ex) { ex.Out($"{this} Failed to process the change of selected audio device!\n"); }
     }
@@ -102,7 +103,7 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
     [RelayCommand] public void RebuildDevices() => Application.Current.Dispatcher.BeginInvoke(RebuildDevicesImmediate);
     private void RebuildDevicesImmediate()
     {
-        $"{this} Refreshing all input devices...".Out(ConsoleColor.DarkGray);
+        $"{this} Refreshing all input devices...".Out(ConsoleColor.Gray);
         MMDevice? device = null;
         try
         {
@@ -136,7 +137,7 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
                     model.Device = device;
                     device = null; // Prevents disposal.
                     AudioDevices.Add(model);
-                    $"{this} Found new audio capture device: {model}".Out(ConsoleColor.DarkGray);
+                    $"{this} Found new audio capture device: {model}".Out(ConsoleColor.Gray);
                 }
                 else
                 {
@@ -180,10 +181,10 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
             if (device is null) return;
             if (device.DataFlow != DataFlow.Capture) return;
 
-            $"{this} Received new device notification. ID: {pwstrDeviceId}".Out(ConsoleColor.DarkGray);
+            $"{this} Received new device notification. ID: {pwstrDeviceId}".Out(ConsoleColor.Gray);
             if (SelectedAudioDevice is not null && device.ID == SelectedAudioDevice.ID)
             {
-                $"{this} Notified about the selected device. Device state will be updated.".Out(ConsoleColor.DarkGray);
+                $"{this} Notified about the selected device. Device state will be updated.".Out(ConsoleColor.Gray);
                 SelectedAudioDevice.FriendlyName = device.FriendlyName;
                 SelectedAudioDevice.Device?.Dispose();
                 SelectedAudioDevice.Device = device;
@@ -204,7 +205,7 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
                 }
                 else
                 {
-                    $"{this} Notified about an existing device. Skipping...".Out(ConsoleColor.DarkGray);
+                    $"{this} Notified about an existing device. Skipping...".Out(ConsoleColor.Gray);
                 }
             }
         }
@@ -225,7 +226,7 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
             if (device is null) return;
             if (device.DataFlow != DataFlow.Capture) return;
 
-            $"{this} Device state change detected. State: {newState}, ID: {deviceId}".Out(ConsoleColor.DarkGray);
+            $"{this} Device state change detected. State: {newState}, ID: {deviceId}".Out(ConsoleColor.Gray);
             var match = AudioDevices.FirstOrDefault(d => d.ID == deviceId);
             if (match is null)
             {
@@ -237,11 +238,11 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
                     model.Device = device;
                     AudioDevices.Add(model);
                     device = null;
-                    $"{this} Added previously missing device.".Out(ConsoleColor.DarkGray);
+                    $"{this} Added previously missing device.".Out(ConsoleColor.Gray);
                 }
                 else
                 {
-                    $"{this} Device is unknown and inactive. Skipping...".Out(ConsoleColor.DarkGray);
+                    $"{this} Device is unknown and inactive. Skipping...".Out(ConsoleColor.Gray);
                 }
             }
             else
@@ -257,7 +258,7 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
                 else device.Dispose();
 
                 match.UpdateState();
-                $"{this} Device state updated.".Out(ConsoleColor.DarkGray);
+                $"{this} Device state updated.".Out(ConsoleColor.Gray);
             }
         }
         catch (Exception ex) { ex.Out($"{this} Failed to update device state!\n"); }
@@ -276,21 +277,21 @@ public sealed partial class AudioCaptureService : ObservableObject, IMMNotificat
             if (index == -1) return;
             var match = AudioDevices[index];
 
-            $"{this} Received device removal notification for device: {match}".Out(ConsoleColor.DarkGray);
+            $"{this} Received device removal notification for device: {match}".Out(ConsoleColor.Gray);
             if (match == SelectedAudioDevice)
             {
                 match.Device?.Dispose();
                 match.Device = null;
-                $"{this} Notified about the selected device. Device state updated.".Out(ConsoleColor.DarkGray);
+                $"{this} Notified about the selected device. Device state updated.".Out(ConsoleColor.Gray);
             }
             else
             {
-                $"{this} Delisting removed device...".Out(ConsoleColor.DarkGray);
+                $"{this} Delisting removed device...".Out(ConsoleColor.Gray);
                 AudioDevices.RemoveAt(index);
                 match.Device?.Dispose();
                 match.Device = null;
                 Pool.Return(match);
-                $"{this} Device delisted successfully.".Out(ConsoleColor.DarkGray);
+                $"{this} Device delisted successfully.".Out(ConsoleColor.Gray);
             }
         }
         catch (Exception ex) { ex.Out($"{this} Failed to add new device!\n"); }

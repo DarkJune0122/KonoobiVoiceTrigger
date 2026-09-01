@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using System.Windows.Threading;
 using VoiceTrigger.Audio;
+using VoiceTrigger.Logging;
 using VoiceTrigger.VTS;
 using VoiceTrigger.VTS.Events;
 using VoiceTrigger.VTS.Requests;

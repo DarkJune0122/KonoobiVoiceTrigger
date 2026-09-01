@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using VoiceTrigger.Logging;
 using VoiceTrigger.VTS.Packets;
 
 namespace VoiceTrigger.VTS;
