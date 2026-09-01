@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using VoiceTrigger.VTS.Packets;
 
 namespace VoiceTrigger.VTS.Requests;
@@ -32,7 +31,7 @@ public sealed class VTSExpressionStateResponseData : VTSResponseData
         [JsonPropertyName("usedInHotkeys")] public required Hotkey[]? UsedInHotkeys { get; init; }
         [JsonPropertyName("parameters")] public required Parameter[]? Parameters { get; init; }
 
-        public override string ToString() => JsonSerializer.Serialize(this, GetType(), VTSPackets.JsonLoggingOptions);
+        public override string ToString() => VTSPackets.ToLoggingString(this);
         //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
         //public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
         //public static StringBuilder ToString(Expression ex, StringBuilder b, string prefix = VTSHelpers.DefaultPrefix) => ex.ToString(b, prefix);
@@ -55,7 +54,7 @@ public sealed class VTSExpressionStateResponseData : VTSResponseData
             [JsonPropertyName("name")] public required string? Name { get; init; }
             [JsonPropertyName("id")] public required string? ID { get; init; }
 
-            public override string ToString() => JsonSerializer.Serialize(this, GetType(), VTSPackets.JsonLoggingOptions);
+            public override string ToString() => VTSPackets.ToLoggingString(this);
             //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
             //public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
             //public static StringBuilder ToString(Hotkey h, StringBuilder b, string prefix = VTSHelpers.DefaultPrefix) => h.ToString(b, prefix);
@@ -72,7 +71,7 @@ public sealed class VTSExpressionStateResponseData : VTSResponseData
             [JsonPropertyName("name")] public required string? Name { get; init; }
             [JsonPropertyName("value")] public required float Value { get; init; }
 
-            public override string ToString() => JsonSerializer.Serialize(this, GetType(), VTSPackets.JsonLoggingOptions);
+            public override string ToString() => VTSPackets.ToLoggingString(this);
             //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
             //public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
             //public static StringBuilder ToString(Parameter p, StringBuilder b, string prefix = VTSHelpers.DefaultPrefix) => p.ToString(b, prefix);

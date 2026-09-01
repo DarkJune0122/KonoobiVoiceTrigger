@@ -29,7 +29,7 @@ public sealed class VTSModelHotkeysResponseData : VTSResponseData
         [JsonPropertyName("hotkeyID")] public required string? HotkeyID { get; init; }
         [JsonPropertyName("onScreenButtonID")] public required int OnScreenButtonID { get; init; }
 
-        public override string ToString() => JsonSerializer.Serialize(this, GetType(), VTSPackets.JsonLoggingOptions);
+        public override string ToString() => VTSPackets.ToLoggingString(this);
         //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
         //public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
         //public static StringBuilder ToString(Hotkey hotkey, StringBuilder b, string prefix = VTSHelpers.DefaultPrefix) => hotkey.ToString(b, prefix);

@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace VoiceTrigger.VTS.Packets;
@@ -44,4 +45,12 @@ public static class VTSPackets
         CommentHandling = JsonCommentHandling.Skip,
         MaxDepth = 0, // Maximum.
     };
+
+    [return: NotNullIfNotNull(nameof(obj))]
+    public static string? ToLoggingString<T>(this T? obj)
+    {
+        if (obj is null) return null;
+        try { return JsonSerializer.Serialize(obj, JsonLoggingOptions); }
+        catch (Exception ex) { ex.Out($"Cannot serialize ({typeof(T)})\n"); return string.Empty; }
+    }
 }

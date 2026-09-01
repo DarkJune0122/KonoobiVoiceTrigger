@@ -246,14 +246,17 @@ public sealed class VTSDiscoveryService : IService
                         {
                             $"{this} Deserialized discovery data sa 'null'. Packet will be ignored.".Out(ConsoleColor.Gray);
                             if (Roaming.LogNetworkPackets)
+                            {
                                 $"{this} Packet:\n{packet}".Out(ConsoleColor.Gray);
+                            }
                             continue;
                         }
                     }
                     catch (Exception ex)
                     {
                         ex.Out($"{this} Discovery data deserialization exception! Packet will be ignored.\n");
-                        continue;
+                        if (Roaming.LogNetworkPackets)
+                            continue;
                     }
 
                     var data = JsonSerializer.Deserialize<VTSDiscoveryResponse>(result.Buffer)?.Data;

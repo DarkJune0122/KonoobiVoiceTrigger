@@ -5,7 +5,6 @@ using System.Windows.Threading;
 using VoiceTrigger.Audio;
 using VoiceTrigger.Services;
 using VoiceTrigger.VTS;
-using VTS.Core;
 
 namespace VoiceTrigger;
 /// <summary>

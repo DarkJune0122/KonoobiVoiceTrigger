@@ -1,6 +1,4 @@
-﻿using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using VoiceTrigger.VTS.Packets;
 
 namespace VoiceTrigger.VTS.Requests;
@@ -49,7 +47,7 @@ public sealed class VTSCurrentModelsResponseData : VTSResponseData
         [JsonPropertyName("rotation")] public required float Rotation { get; init; }
         [JsonPropertyName("size")] public required float Size { get; init; }
 
-        public override string ToString() => JsonSerializer.Serialize(this, GetType(), VTSPackets.JsonLoggingOptions);
+        public override string ToString() => VTSPackets.ToLoggingString(this);
         //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
         //public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
         //public static StringBuilder ToString(Position pos, StringBuilder b, string prefix = VTSHelpers.DefaultPrefix) => pos.ToString(b, prefix);

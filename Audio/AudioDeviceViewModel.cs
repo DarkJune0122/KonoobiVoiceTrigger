@@ -1,6 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using NAudio.CoreAudioApi;
-using Newtonsoft.Json.Linq;
 using System.Diagnostics.CodeAnalysis;
 
 namespace VoiceTrigger.Audio;

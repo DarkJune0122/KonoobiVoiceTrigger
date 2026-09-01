@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
-using VoiceTrigger.Configuration;
 using VoiceTrigger.Services;
 using Wpf.Ui.Controls;
 using Wpf.Ui.Tray.Controls;

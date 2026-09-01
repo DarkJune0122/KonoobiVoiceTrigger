@@ -1,12 +1,10 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using NAudio.CoreAudioApi;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using System.Windows.Threading;
 using VoiceTrigger.Audio;
-using VoiceTrigger.Configuration;
 using VoiceTrigger.VTS;
 using VoiceTrigger.VTS.Events;
 using VoiceTrigger.VTS.Requests;
