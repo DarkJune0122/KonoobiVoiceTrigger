@@ -347,18 +347,18 @@ public sealed partial class VTubeStudio : ObservableObject
     async Task<ushort> DiscoverPort(CancellationToken token)
     {
         $"{this} Discovering port...".Out(ConsoleColor.Yellow);
-        using var scope = VTSDiscovery.Instance.RequestScope(this);
+        using var scope = VTSDiscoveryService.Instance.RequestScope(this);
         TaskCompletionSource<ushort> PortSource = new();
         Application.Current.Dispatcher.Invoke(() =>
         {
-            if (VTSDiscovery.Instance.VTSActive)
+            if (VTSDiscoveryService.Instance.VTSActive)
             {
-                PortSource.TrySetResult(VTSDiscovery.Instance.VTSPort);
+                PortSource.TrySetResult(VTSDiscoveryService.Instance.VTSPort);
                 return;
             }
 
-            VTSDiscovery.Instance.OnInformationUpdated += UpdateHandler;
-            void UpdateHandler(VTSDiscovery service)
+            VTSDiscoveryService.Instance.OnInformationUpdated += UpdateHandler;
+            void UpdateHandler(VTSDiscoveryService service)
             {
                 if (service.VTSActive)
                 {

@@ -19,6 +19,5 @@ public sealed class VTSDiscoveryResponseData : VTSResponseData
         AppendLine(b, prefix, InstanceID);
         AppendLine(b, prefix, WindowTitle);
         return base.ToString(b, prefix);
-
     }
 }

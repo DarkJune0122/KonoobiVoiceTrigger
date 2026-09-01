@@ -51,6 +51,7 @@ public partial class App : Application
         {
             LogService.Initialize();
             Initialize();
+            VTSDiscoveryService.Instance.Initialize();
             //VTSService.Instance.Initialize();
             SingletonSource = new();
             _ = StartServerPipeAsync(SingletonSource.Token);
@@ -77,6 +78,7 @@ public partial class App : Application
         VTubeStudio.Instance.Stop();
         //VTSService.Instance.Terminate();
         AudioCaptureService.Instance.Terminate();
+        VTSDiscoveryService.Instance.Terminate();
         Terminate();
         LogService.Terminate();
         SingletonMutex?.Dispose();

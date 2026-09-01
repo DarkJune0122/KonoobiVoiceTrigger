@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Runtime.CompilerServices;
+using System.Text;
 using VoiceTrigger.Services;
 
 namespace VoiceTrigger;
@@ -7,7 +8,13 @@ public static class ConsoleHelpers
 {
     static readonly StringBuilder builder = new();
     public static string ToDisplay(this Exception ex) => $"{ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}";
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Out(this Exception ex, string? prefix = null, ConsoleColor color = ConsoleColor.Red)
+    {
+        ex.Out((object?)prefix, color);
+    }
+    public static void Out(this Exception ex, object? prefix = null, ConsoleColor color = ConsoleColor.Red)
     {
         lock (builder)
         {
@@ -17,9 +24,13 @@ public static class ConsoleHelpers
             builder.Clear();
             if (prefix is not null)
             {
-                builder.Append(prefix);
-                if (!prefix.EndsWith(' '))
-                    builder.Append(' ');
+                string? str = prefix.ToString();
+                if (str is not null)
+                {
+                    builder.Append(str);
+                    if (!str.EndsWith(' '))
+                        builder.Append(' ');
+                }
             }
             builder.Append(ex.ToDisplay());
             string final = builder.ToString();
