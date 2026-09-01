@@ -1,4 +1,4 @@
-﻿using System.Text;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using VoiceTrigger.VTS.Packets;
 
@@ -18,24 +18,25 @@ public sealed class VTSAvailableModelsResponseData : VTSResponseData
         [JsonPropertyName("vtsModelName")] public required string? VTSModelName { get; init; }
         [JsonPropertyName("vtsModelIconName")] public required string? VTSModelIconName { get; init; }
 
-        public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
-        public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
-        public static StringBuilder ToString(Model model, StringBuilder b, string prefix = VTSHelpers.DefaultPrefix) => model.ToString(b, prefix);
-        public StringBuilder ToString(StringBuilder b, string prefix = VTSHelpers.DefaultPrefix)
-        {
-            VTSHelpers.AppendLine(b, prefix, ModelLoaded);
-            VTSHelpers.AppendLine(b, prefix, ModelName);
-            VTSHelpers.AppendLine(b, prefix, ModelID);
-            VTSHelpers.AppendLine(b, prefix, VTSModelName);
-            VTSHelpers.Append(b, prefix, VTSModelIconName);
-            return b;
-        }
+        public override string ToString() => JsonSerializer.Serialize(this, GetType(), VTSPackets.JsonLoggingOptions);
+        //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
+        //public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
+        //public static StringBuilder ToString(Model model, StringBuilder b, string prefix = VTSHelpers.DefaultPrefix) => model.ToString(b, prefix);
+        //public StringBuilder ToString(StringBuilder b, string prefix = VTSHelpers.DefaultPrefix)
+        //{
+        //    VTSHelpers.AppendLine(b, prefix, ModelLoaded);
+        //    VTSHelpers.AppendLine(b, prefix, ModelName);
+        //    VTSHelpers.AppendLine(b, prefix, ModelID);
+        //    VTSHelpers.AppendLine(b, prefix, VTSModelName);
+        //    VTSHelpers.Append(b, prefix, VTSModelIconName);
+        //    return b;
+        //}
     }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = "")
-    {
-        AppendLine(b, prefix, NumberOfModels);
-        AppendList(b, prefix, AvailableModels, Model.ToString).AppendLine();
-        return base.ToString(b, prefix);
-    }
+    //public override StringBuilder ToString(StringBuilder b, string prefix = "")
+    //{
+    //    AppendLine(b, prefix, NumberOfModels);
+    //    AppendList(b, prefix, AvailableModels, Model.ToString).AppendLine();
+    //    return base.ToString(b, prefix);
+    //}
 }

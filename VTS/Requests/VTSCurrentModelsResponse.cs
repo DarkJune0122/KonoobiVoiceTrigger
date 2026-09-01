@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using VoiceTrigger.VTS.Packets;
 
@@ -22,24 +23,24 @@ public sealed class VTSCurrentModelsResponseData : VTSResponseData
     [JsonPropertyName("textureResolution")] public required int TextureResolution { get; set; }
     [JsonPropertyName("modelPosition")] public required Position ModelPosition { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = "")
-    {
-        AppendLine(b, prefix, ModelLoaded);
-        AppendLine(b, prefix, ModelName);
-        AppendLine(b, prefix, ModelID);
-        AppendLine(b, prefix, VTSModelName);
-        AppendLine(b, prefix, VTSModelIconName);
-        AppendLine(b, prefix, Live2DModelName);
-        AppendLine(b, prefix, ModelLoadTime);
-        AppendLine(b, prefix, TimeSinceModelLoaded);
-        AppendLine(b, prefix, NumberOfLive2DParameters);
-        AppendLine(b, prefix, NumberOfLive2DArtmeshes);
-        AppendLine(b, prefix, HasPhysicsFile);
-        AppendLine(b, prefix, NumberOfTextures);
-        AppendLine(b, prefix, TextureResolution);
-        AppendData(b, prefix, ModelPosition);
-        return base.ToString(b, prefix);
-    }
+    //public override StringBuilder ToString(StringBuilder b, string prefix = "")
+    //{
+    //    AppendLine(b, prefix, ModelLoaded);
+    //    AppendLine(b, prefix, ModelName);
+    //    AppendLine(b, prefix, ModelID);
+    //    AppendLine(b, prefix, VTSModelName);
+    //    AppendLine(b, prefix, VTSModelIconName);
+    //    AppendLine(b, prefix, Live2DModelName);
+    //    AppendLine(b, prefix, ModelLoadTime);
+    //    AppendLine(b, prefix, TimeSinceModelLoaded);
+    //    AppendLine(b, prefix, NumberOfLive2DParameters);
+    //    AppendLine(b, prefix, NumberOfLive2DArtmeshes);
+    //    AppendLine(b, prefix, HasPhysicsFile);
+    //    AppendLine(b, prefix, NumberOfTextures);
+    //    AppendLine(b, prefix, TextureResolution);
+    //    AppendData(b, prefix, ModelPosition);
+    //    return base.ToString(b, prefix);
+    //}
 
     public readonly struct Position
     {
@@ -48,16 +49,17 @@ public sealed class VTSCurrentModelsResponseData : VTSResponseData
         [JsonPropertyName("rotation")] public required float Rotation { get; init; }
         [JsonPropertyName("size")] public required float Size { get; init; }
 
-        public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
-        public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
-        public static StringBuilder ToString(Position pos, StringBuilder b, string prefix = VTSHelpers.DefaultPrefix) => pos.ToString(b, prefix);
-        public StringBuilder ToString(StringBuilder b, string prefix = VTSHelpers.DefaultPrefix)
-        {
-            VTSHelpers.AppendLine(b, prefix, PositionX);
-            VTSHelpers.AppendLine(b, prefix, PositionY);
-            VTSHelpers.AppendLine(b, prefix, Rotation);
-            VTSHelpers.Append(b, prefix, Size);
-            return b;
-        }
+        public override string ToString() => JsonSerializer.Serialize(this, GetType(), VTSPackets.JsonLoggingOptions);
+        //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
+        //public string? ToString(string prefix) => ToString(b: new(), prefix).ToString();
+        //public static StringBuilder ToString(Position pos, StringBuilder b, string prefix = VTSHelpers.DefaultPrefix) => pos.ToString(b, prefix);
+        //public StringBuilder ToString(StringBuilder b, string prefix = VTSHelpers.DefaultPrefix)
+        //{
+        //    VTSHelpers.AppendLine(b, prefix, PositionX);
+        //    VTSHelpers.AppendLine(b, prefix, PositionY);
+        //    VTSHelpers.AppendLine(b, prefix, Rotation);
+        //    VTSHelpers.Append(b, prefix, Size);
+        //    return b;
+        //}
     }
 }

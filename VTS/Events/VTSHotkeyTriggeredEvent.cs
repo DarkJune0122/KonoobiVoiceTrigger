@@ -1,5 +1,4 @@
-﻿using System.Text;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using VoiceTrigger.VTS.Packets;
 
 namespace VoiceTrigger.VTS.Events;
@@ -16,17 +15,17 @@ public sealed class VTSHotkeyTriggeredEventData : VTSResponseData
     [JsonPropertyName("modelName")] public required string? ModelName { get; init; }
     [JsonPropertyName("isLive2DItem")] public required bool IsLive2DItem { get; init; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = "")
-    {
-        base.ToString(b, prefix);
-        AppendLine(b, prefix, HotkeyID);
-        AppendLine(b, prefix, HotkeyName);
-        AppendLine(b, prefix, HotkeyAction);
-        AppendLine(b, prefix, HotkeyFile);
-        AppendLine(b, prefix, HotkeyTriggeredByAPI);
-        AppendLine(b, prefix, ModelID);
-        AppendLine(b, prefix, ModelName);
-        Append(b, prefix, IsLive2DItem);
-        return b;
-    }
+    //public override StringBuilder ToString(StringBuilder b, string prefix = "")
+    //{
+    //    base.ToString(b, prefix);
+    //    AppendLine(b, prefix, HotkeyID);
+    //    AppendLine(b, prefix, HotkeyName);
+    //    AppendLine(b, prefix, HotkeyAction);
+    //    AppendLine(b, prefix, HotkeyFile);
+    //    AppendLine(b, prefix, HotkeyTriggeredByAPI);
+    //    AppendLine(b, prefix, ModelID);
+    //    AppendLine(b, prefix, ModelName);
+    //    Append(b, prefix, IsLive2DItem);
+    //    return b;
+    //}
 }

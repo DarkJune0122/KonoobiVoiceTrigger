@@ -1,5 +1,4 @@
-﻿using System.Text;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace VoiceTrigger.VTS.Packets;
 
@@ -20,12 +19,12 @@ public abstract class VTSResponse<TData> : VTSResponseTemplate where TData : VTS
 
     [JsonPropertyName("data")] public virtual required TData? Data { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
-    {
-        base.ToString(b, prefix).AppendLine();
-        AppendData(b, prefix, Data);
-        return b;
-    }
+    //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    //{
+    //    base.ToString(b, prefix).AppendLine();
+    //    AppendData(b, prefix, Data);
+    //    return b;
+    //}
 }
 
 public class VTSResponse : VTSResponseTemplate
@@ -40,12 +39,12 @@ public class VTSResponse : VTSResponseTemplate
 
     [JsonPropertyName("data")] public virtual VTSResponseData? Data { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
-    {
-        base.ToString(b, prefix).AppendLine();
-        AppendData(b, prefix, Data);
-        return b;
-    }
+    //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    //{
+    //    base.ToString(b, prefix).AppendLine();
+    //    AppendData(b, prefix, Data);
+    //    return b;
+    //}
 }
 
 public class VTSResponseData : VTSPacketData
@@ -59,10 +58,10 @@ public class VTSResponseData : VTSPacketData
     [JsonPropertyName("errorID")] public long ErrorID { get; set; }
     [JsonPropertyName("message")] public string? Message { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
-    {
-        AppendLine(b, prefix, ErrorID);
-        Append(b, prefix, Message);
-        return b;
-    }
+    //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    //{
+    //    AppendLine(b, prefix, ErrorID);
+    //    Append(b, prefix, Message);
+    //    return b;
+    //}
 }

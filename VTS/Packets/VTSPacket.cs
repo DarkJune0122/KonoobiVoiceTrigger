@@ -13,12 +13,12 @@ public abstract class VTSPacket : VTSPacketData // Inherits associated functions
     [JsonPropertyName(VTSPackets.MessageTypeJsonPropertyName)] public virtual string? MessageType { get; set; }
     [JsonPropertyName(VTSPackets.RequestIDJsonPropertyName)] public virtual string? RequestID { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
-    {
-        AppendLine(b, prefix, APIName);
-        AppendLine(b, prefix, APIVersion);
-        AppendLine(b, prefix, MessageType);
-        Append(b, prefix, RequestID);
-        return b;
-    }
+    //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    //{
+    //    AppendLine(b, prefix, APIName);
+    //    AppendLine(b, prefix, APIVersion);
+    //    AppendLine(b, prefix, MessageType);
+    //    Append(b, prefix, RequestID);
+    //    return b;
+    //}
 }

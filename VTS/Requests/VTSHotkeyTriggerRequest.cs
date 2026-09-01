@@ -1,5 +1,4 @@
-﻿using System.Text;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using VoiceTrigger.VTS.Packets;
 
 namespace VoiceTrigger.VTS.Requests;
@@ -13,11 +12,11 @@ public sealed class VTSHotkeyTriggerRequestData : VTSRequestData
     [JsonPropertyName("hotkeyID")] public required string? HotkeyID { get; set; }
     [JsonPropertyName("itemInstanceID")] public required string? ItemInstanceID { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
-    {
-        base.ToString(b, prefix);
-        AppendLine(b, prefix, HotkeyID);
-        Append(b, prefix, ItemInstanceID);
-        return b;
-    }
+    //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    //{
+    //    base.ToString(b, prefix);
+    //    AppendLine(b, prefix, HotkeyID);
+    //    Append(b, prefix, ItemInstanceID);
+    //    return b;
+    //}
 }

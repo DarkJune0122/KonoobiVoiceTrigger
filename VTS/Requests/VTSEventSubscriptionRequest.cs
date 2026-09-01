@@ -1,5 +1,4 @@
-﻿using System.Text;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using VoiceTrigger.VTS.Packets;
 
 namespace VoiceTrigger.VTS.Requests;
@@ -14,12 +13,12 @@ public sealed class VTSEventSubscriptionRequestData : VTSRequestData
     [JsonPropertyName("subscribe")] public required bool Subscribe { get; set; }
     [JsonPropertyName("config")] public required VTSEventConfig? Config { get; set; }
 
-    public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
-    {
-        base.ToString(b, prefix);
-        AppendLine(b, prefix, EventName);
-        AppendLine(b, prefix, Subscribe);
-        Append(b, prefix, Config);
-        return b;
-    }
+    //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
+    //{
+    //    base.ToString(b, prefix);
+    //    AppendLine(b, prefix, EventName);
+    //    AppendLine(b, prefix, Subscribe);
+    //    Append(b, prefix, Config);
+    //    return b;
+    //}
 }

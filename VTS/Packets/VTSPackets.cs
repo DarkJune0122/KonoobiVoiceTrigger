@@ -26,6 +26,16 @@ public static class VTSPackets
         UnknownTypeHandling = JsonUnknownTypeHandling.JsonElement,
     };
     /// <summary>
+    /// Options to use for JSON serialization in <see cref="JsonSerializer"/> specifically for logging.
+    /// </summary>
+    public static readonly JsonSerializerOptions JsonLoggingOptions = new()
+    {
+        WriteIndented = true,
+        AllowTrailingCommas = true,
+        PreferredObjectCreationHandling = JsonObjectCreationHandling.Populate,
+        UnknownTypeHandling = JsonUnknownTypeHandling.JsonElement,
+    };
+    /// <summary>
     /// Options to use for Json serialization in <see cref="JsonDocument"/>.
     /// </summary>
     public static readonly JsonDocumentOptions DocumentOptions = new()
