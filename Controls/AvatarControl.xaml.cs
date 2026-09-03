@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using VoiceTrigger.Configuration;
 using VoiceTrigger.Logging;
 using VoiceTrigger.Shaders;
 using VoiceTrigger.VTS;
@@ -88,14 +87,14 @@ public partial class AvatarControl : UserControl
     {
         InitializeComponent();
 
-        double frameRate = Math.Max(0.0001, ConfigurationService.Roaming.AuraFrameRate);
+        double frameRate = Math.Max(0.0001, Roaming.AuraFrameRate);
         AuraUpdateTimer = new()
         {
             Interval = TimeSpan.FromSeconds(1d / frameRate),
         };
         AuraUpdateTimer.Tick += (s, e) =>
         {
-            double frequency = Math.Max(0.0001, ConfigurationService.Roaming.AuraFrequency);
+            double frequency = Math.Max(0.0001, Roaming.AuraFrequency);
 
             double period = 1000d / frequency;
             double time = (Environment.TickCount64 - ApplicationStartTick) % period;

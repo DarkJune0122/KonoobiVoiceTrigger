@@ -6,8 +6,15 @@ namespace VoiceTrigger.VTS.Requests;
 public sealed class VTSAuthenticationResponse : VTSResponse<VTSAuthenticationResponseData>;
 public sealed class VTSAuthenticationResponseData : VTSResponseData
 {
-    [JsonPropertyName("authenticated")] public required bool Authenticated { get; set; }
-    [JsonPropertyName("reason")] public required string? Reason { get; set; }
+    [JsonPropertyName("authenticated")] public bool Authenticated { get; set; }
+    [JsonPropertyName("reason")] public string? Reason { get; set; }
+
+    public override void Reset()
+    {
+        base.Reset();
+        Authenticated = default;
+        Reason = default;
+    }
 
     //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     //{

@@ -6,16 +6,23 @@ namespace VoiceTrigger.VTS.Requests;
 public sealed class VTSAvailableModelsResponse : VTSResponse<VTSAvailableModelsResponseData>;
 public sealed class VTSAvailableModelsResponseData : VTSResponseData
 {
-    [JsonPropertyName("numberOfModels")] public required int NumberOfModels { get; set; }
-    [JsonPropertyName("availableModels")] public required Model[]? AvailableModels { get; set; }
+    [JsonPropertyName("numberOfModels")] public int NumberOfModels { get; set; }
+    [JsonPropertyName("availableModels")] public List<Model>? AvailableModels { get; set; }
+
+    public override void Reset()
+    {
+        base.Reset();
+        NumberOfModels = default;
+        AvailableModels?.Clear();
+    }
 
     public readonly struct Model
     {
-        [JsonPropertyName("modelLoaded")] public required bool ModelLoaded { get; init; }
-        [JsonPropertyName("modelName")] public required string? ModelName { get; init; }
-        [JsonPropertyName("modelID")] public required string? ModelID { get; init; }
-        [JsonPropertyName("vtsModelName")] public required string? VTSModelName { get; init; }
-        [JsonPropertyName("vtsModelIconName")] public required string? VTSModelIconName { get; init; }
+        [JsonPropertyName("modelLoaded")] public bool ModelLoaded { get; init; }
+        [JsonPropertyName("modelName")] public string? ModelName { get; init; }
+        [JsonPropertyName("modelID")] public string? ModelID { get; init; }
+        [JsonPropertyName("vtsModelName")] public string? VTSModelName { get; init; }
+        [JsonPropertyName("vtsModelIconName")] public string? VTSModelIconName { get; init; }
 
         public override string ToString() => VTSPackets.ToLoggingString(this);
         //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);

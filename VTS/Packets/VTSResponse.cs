@@ -10,6 +10,7 @@ public abstract class VTSResponseTemplate : VTSPacket
     /// </summary>
     public abstract bool Succeeded { get; }
 }
+
 public abstract class VTSResponse<TData> : VTSResponseTemplate where TData : VTSResponseData
 {
     /// <summary>
@@ -17,7 +18,14 @@ public abstract class VTSResponse<TData> : VTSResponseTemplate where TData : VTS
     /// </summary>
     public sealed override bool Succeeded => Data is not null && Data.Succeeded;
 
-    [JsonPropertyName("data")] public virtual required TData? Data { get; set; }
+    [JsonPropertyName("data")] public virtual TData? Data { get; set; }
+
+    public override void Reset()
+    {
+        base.Reset();
+        // We keep the reference to allow JsonSerializer to deserialize values directly into the existing reference.
+        Data?.Reset();
+    }
 
     //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     //{
@@ -39,6 +47,13 @@ public class VTSResponse : VTSResponseTemplate
 
     [JsonPropertyName("data")] public virtual VTSResponseData? Data { get; set; }
 
+    public override void Reset()
+    {
+        base.Reset();
+        // We keep the reference to allow JsonSerializer to deserialize values directly into the existing reference.
+        Data?.Reset();
+    }
+
     //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     //{
     //    base.ToString(b, prefix).AppendLine();
@@ -56,7 +71,16 @@ public class VTSResponseData : VTSPacketData
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     [JsonPropertyName("errorID")] public long ErrorID { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     [JsonPropertyName("message")] public string? Message { get; set; }
+
+    public override void Reset()
+    {
+        base.Reset();
+        ErrorID = default;
+        Message = default;
+    }
 
     //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     //{

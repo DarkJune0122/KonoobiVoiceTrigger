@@ -1,15 +1,15 @@
 ﻿namespace VoiceTrigger;
 
-public interface IService
+public interface IAsyncService
 {
     /// <summary>
-    /// Initializes service state and its resources.
+    /// Initializes service state and its resources asyncronously.
     /// Loads saves from <see cref="Configuration.ConfigurationService"/>, if stateful.
     /// </summary>
-    void Initialize();
+    Task Initialize();
     /// <summary>
-    /// Unloads all held resources.
+    /// Unloads all held resources asyncronously.
     /// State might not be saved to <see cref="Configuration.ConfigurationService"/>, as it is usually stored immediate on change.
     /// </summary>
-    void Terminate();
+    Task Terminate();
 }

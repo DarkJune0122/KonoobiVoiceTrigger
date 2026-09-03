@@ -12,6 +12,13 @@ public sealed class VTSHotkeyTriggerRequestData : VTSRequestData
     [JsonPropertyName("hotkeyID")] public required string? HotkeyID { get; set; }
     [JsonPropertyName("itemInstanceID")] public required string? ItemInstanceID { get; set; }
 
+    public override void Reset()
+    {
+        base.Reset();
+        HotkeyID = default;
+        ItemInstanceID = default;
+    }
+
     //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     //{
     //    base.ToString(b, prefix);

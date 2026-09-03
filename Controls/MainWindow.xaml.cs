@@ -20,7 +20,7 @@ public partial class MainWindow : FluentWindow
         HandleStateChange(WindowState);
     }
 
-    private void Icon_Exit(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
+    private void Icon_Exit(object sender, RoutedEventArgs e) => App.Current.TriggerShutdown();
     private void Icon_Open(object sender, RoutedEventArgs e) => RestoreWindow();
     private void Icon_RestoreWindow(NotifyIcon sender, RoutedEventArgs e) => RestoreWindow();
     void RestoreWindow()
@@ -38,7 +38,7 @@ public partial class MainWindow : FluentWindow
         {
             // Allow closing if Shift or Ctrl is held down.
             // TODO: Add a tooltip for this.
-            Application.Current.Shutdown();
+            App.Current.TriggerShutdown();
             return;
         }
         e.Cancel = true;
@@ -148,7 +148,7 @@ public partial class MainWindow : FluentWindow
         }
         if (e.Key == Key.System && e.SystemKey == Key.F4)
         {
-            Application.Current.Shutdown();
+            App.Current.TriggerShutdown();
             e.Handled = true;
         }
     }

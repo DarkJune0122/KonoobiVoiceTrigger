@@ -10,6 +10,14 @@ public sealed class VTSAPIStateResposeData : VTSResponseData
     [JsonPropertyName("vTubeStudioVersion")] public string? VTubeStudioVersion { get; set; }
     [JsonPropertyName("currentSessionAuthenticated")] public bool CurrentSessionAuthenticated { get; set; }
 
+    public override void Reset()
+    {
+        base.Reset();
+        Active = default;
+        VTubeStudioVersion = default;
+        CurrentSessionAuthenticated = default;
+    }
+
     //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     //{
     //    AppendLine(b, prefix, Active);

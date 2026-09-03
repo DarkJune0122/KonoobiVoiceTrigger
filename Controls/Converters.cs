@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Windows.Data;
+using System.Windows.Markup;
 using VoiceTrigger.VTS;
 using Wpf.Ui.Controls;
 
@@ -13,7 +14,7 @@ public sealed class VTSStatusToBoolConverter : AbstractConverter<BoolToVisibilit
         if (value is not VTSStatus status)
             return invert is not null;
 
-        return status == VTSStatus.Online ? invert is null : invert is not null;
+        return status == VTSStatus.Authenticating ? invert is null : invert is not null;
     }
 
     public override object ConvertBack(object value, Type targetType, object invert, CultureInfo culture)
@@ -114,10 +115,10 @@ public sealed class StateToMicrophoneIconConcerter : AbstractConverter<StateToMi
     }
 }
 
-public abstract class AbstractConverter<T> : IValueConverter where T : AbstractConverter<T>, new()
+public abstract class AbstractConverter<T> : MarkupExtension, IValueConverter where T : AbstractConverter<T>, new()
 {
-    public static T Instance { get; private set; } = new T();
-
+    public static T Instance { get; } = new T();
     public abstract object Convert(object value, Type targetType, object parameter, CultureInfo culture);
     public abstract object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture);
+    public override object ProvideValue(IServiceProvider serviceProvider) => Instance;
 }

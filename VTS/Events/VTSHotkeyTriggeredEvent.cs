@@ -6,14 +6,27 @@ namespace VoiceTrigger.VTS.Events;
 public sealed class VTSHotkeyTriggeredEvent : VTSResponse<VTSHotkeyTriggeredEventData>;
 public sealed class VTSHotkeyTriggeredEventData : VTSResponseData
 {
-    [JsonPropertyName("hotkeyID")] public required string? HotkeyID { get; init; }
-    [JsonPropertyName("hotkeyName")] public required string? HotkeyName { get; init; }
-    [JsonPropertyName("hotkeyAction")] public required string? HotkeyAction { get; init; }
-    [JsonPropertyName("hotkeyFile")] public required string? HotkeyFile { get; init; }
-    [JsonPropertyName("hotkeyTriggeredByAPI")] public required bool HotkeyTriggeredByAPI { get; init; }
-    [JsonPropertyName("modelID")] public required string? ModelID { get; init; }
-    [JsonPropertyName("modelName")] public required string? ModelName { get; init; }
-    [JsonPropertyName("isLive2DItem")] public required bool IsLive2DItem { get; init; }
+    [JsonPropertyName("hotkeyID")] public required string? HotkeyID { get; set; }
+    [JsonPropertyName("hotkeyName")] public required string? HotkeyName { get; set; }
+    [JsonPropertyName("hotkeyAction")] public required string? HotkeyAction { get; set; }
+    [JsonPropertyName("hotkeyFile")] public required string? HotkeyFile { get; set; }
+    [JsonPropertyName("hotkeyTriggeredByAPI")] public required bool HotkeyTriggeredByAPI { get; set; }
+    [JsonPropertyName("modelID")] public required string? ModelID { get; set; }
+    [JsonPropertyName("modelName")] public required string? ModelName { get; set; }
+    [JsonPropertyName("isLive2DItem")] public required bool IsLive2DItem { get; set; }
+
+    public override void Reset()
+    {
+        base.Reset();
+        HotkeyID = default;
+        HotkeyName = default;
+        HotkeyAction = default;
+        HotkeyFile = default;
+        HotkeyTriggeredByAPI = default;
+        ModelID = default;
+        ModelName = default;
+        IsLive2DItem = default;
+    }
 
     //public override StringBuilder ToString(StringBuilder b, string prefix = "")
     //{

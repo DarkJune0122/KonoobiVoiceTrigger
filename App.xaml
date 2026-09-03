@@ -6,7 +6,6 @@
     xmlns:style="clr-namespace:VoiceTrigger.Styles"
     xmlns:shader="clr-namespace:VoiceTrigger.Shaders"
     xmlns:local="clr-namespace:VoiceTrigger"
-    StartupUri="Controls/MainWindow.xaml"
     ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>

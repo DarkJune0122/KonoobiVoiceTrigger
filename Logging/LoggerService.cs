@@ -4,7 +4,7 @@ using System.Threading.Channels;
 
 namespace VoiceTrigger.Logging;
 
-public sealed class LoggerService
+public sealed class LoggerService : IAsyncService
 {
     public static readonly LoggerService Instance = new();
 
@@ -21,9 +21,10 @@ public sealed class LoggerService
     ChannelWriter<string>? InputQueue;
     Task? WorkerTask;
 
-    public void Initialize()
+    public Task Initialize()
     {
         lock (Lock) InitializeCore();
+        return Task.CompletedTask;
     }
     void InitializeCore()
     {
@@ -74,21 +75,22 @@ public sealed class LoggerService
                 try
                 {
                     $"{this} [Worker] Started.".Out(ConsoleColor.Gray);
-                    while (await reader.WaitToReadAsync(token))
-                    {
-                        while (reader.TryRead(out string? line))
-                        {
-                            token.ThrowIfCancellationRequested();
-                            await stream.WriteLineAsync(line.AsMemory(), token);
-                        }
-                    }
+                    //while (await reader.WaitToReadAsync(token))
+                    //{
+                    //    while (reader.TryRead(out string? line))
+                    //    {
+                    //        token.ThrowIfCancellationRequested();
+                    //        await stream.WriteLineAsync(line.AsMemory(), token);
+                    //    }
+                    //}
                     // This implementation stalls the thread indefinitely, even if token is cancelled.
                     // This might be a bug or a quirk in API (likely the latter).
                     // Finding any solution that will not allow infinite blocking is proving to be hard as well.
-                    //await foreach (string line in reader.ReadAllAsync(token))
-                    //{
-                    //    await stream.WriteAsync(line.AsMemory(), token);
-                    //}
+                    await foreach (string line in reader.ReadAllAsync(token))
+                    {
+                        // No token - we allow it to write all the logs before quitting.
+                        await stream.WriteLineAsync(line.AsMemory());
+                    }
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex) { ex.Out($"{this} [Worker]"); }

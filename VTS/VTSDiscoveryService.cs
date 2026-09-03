@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
@@ -10,34 +11,14 @@ using VoiceTrigger.VTS.Requests;
 
 namespace VoiceTrigger.VTS;
 
-//public sealed partial class VTSConnection : ObservableObject, IDisposable
-//{
-//    [ObservableProperty] public partial VTSEndPoint EndPoint { get; private set; }
-//    [ObservableProperty] public partial VSTPlugin Plugin { get; private set; }
-//    [ObservableProperty] public partial VTSStatus Status { get; set; }
-//    [ObservableProperty] public partial bool Authenticated { get; set; }
-
-//    CancellationToken Token;
-
-//    /// <summary>
-//    /// Collects provided 
-//    /// </summary>
-//    /// <param name="plugin"></param>
-//    public async Task<bool> ConnectAsync(VTSEndPoint VTubeStudioPlugin plugin, CancellationToken token)
-//    {
-
-//    }
-
-//    public void Dispose()
-//    {
-//        throw new NotImplementedException();
-//    }
-
-//    public override string ToString() => $"[{nameof(VTSConnection)}]";
-//}
-
+/// <summary>
+/// Responsible for discovering new instances of VTube Studio and timing out old ones based on keep-alive events.
+/// Instances are provided as a list o <see cref="VTSEndPoint"/>s, to which <see cref="VTSConnection"/> can connect to.
+/// </summary>
 /// <remarks>
-/// All events are NOT UI-thread safe!
+/// Disabling this service mid-program-execution will lead to <see cref="VTSEndPoint"/>s
+/// only being killed by <see cref="VTSConnection"/> on some critical exceptions (no examples yet),
+/// or only explicitly from user/developer input, by calling <see cref="VTSEndPoint.Kill"/>.
 /// </remarks>
 /// Task:
 /// 1. Start on Start.
@@ -46,10 +27,9 @@ namespace VoiceTrigger.VTS;
 /// 4. Update list of valid end-points.
 /// 5. Invalidate existing end-points.
 /// 6. Do NOT dispatch events to UI thread (reduces other thread's waiting period).
-public sealed class VTSDiscoveryService : IService
+public sealed partial class VTSDiscoveryService : ObservableObject, IService
 {
-    // This value never changes, so we will not implement a property for it.
-    public const ushort KnownVTubeStudioDiscoveryPort = 47779;
+    public const ushort DefaultVTubeStudioDiscoveryPort = 47779;
     public const double DefaultRestartDelay = 2;
     public const double DefaultKeepAliveCheckInterval = 5;
     public const double DefaultEndPointMaxKeepAliveInterval = 60;
@@ -72,18 +52,10 @@ public sealed class VTSDiscoveryService : IService
     public static readonly VTSDiscoveryService Instance = new();
 
     public delegate void ActiveChangedEventHandler(bool active);
-    public delegate void EndPointAddedEventHandler(VTSEndPoint ep);
-    public delegate void EndPointRemovedEventHandler(VTSEndPoint ep);
-    public delegate void EndPointsChangedEventHandler(IReadOnlyList<VTSEndPoint> endPoints);
 
-    public event ActiveChangedEventHandler? OnActiveChanged;
-    public event EndPointAddedEventHandler? OnEndPointAdded;
-    public event EndPointRemovedEventHandler? OnEndPointRemoved;
-    public event EndPointsChangedEventHandler? OnEndPointsChanged;
+    public event ActiveChangedEventHandler? ActiveChanged;
 
-    public IReadOnlyList<VTSEndPoint> EndPoints => m_EndPoints;
-
-    // Note: callback syncronization with UI happens on VM level.
+    public ObservableCollection<VTSEndPoint> EndPoints { get; } = [];
     public bool Active
     {
         get => field;
@@ -91,16 +63,24 @@ public sealed class VTSDiscoveryService : IService
         {
             lock (Lock)
             {
-                if (field == value) return;
-                field = value;
-                OnActiveChanged?.Invoke(value);
+                if (field != value)
+                {
+                    OnPropertyChanging(KnownEventArgs.ActiveChanging);
+                    field = value;
+                    ActiveChanged?.Invoke(value);
+                    OnPropertyChanged(KnownEventArgs.ActiveChanged);
+                }
             }
         }
     }
     /// <summary>
     /// Only updated during <see cref="Initialize"/>.
     /// </summary>
-    public ushort Port { get; private set; } = KnownVTubeStudioDiscoveryPort;
+    public static ushort Port
+    {
+        get => Roaming.VTubeStudioDiscoveryPort;
+        set => Roaming.VTubeStudioDiscoveryPort = value;
+    }
     public static double RestartDelay
     {
         get => Roaming.VTubeStudioDiscoveryRestartDelay;
@@ -118,22 +98,14 @@ public sealed class VTSDiscoveryService : IService
     }
 
     static int WorkerCounter;
-    readonly List<VTSEndPoint> m_EndPoints = [];
     readonly Lock Lock = new();
     CancellationTokenSource? Identity;
 
     /// <inheritdoc/>
-    public void Initialize()
-    {
-        Port = Roaming.VTubeStudioDiscoveryPort;
-        Start();
-    }
+    public void Initialize() => Start();
 
     /// <inheritdoc/>
-    public void Terminate()
-    {
-        Stop();
-    }
+    public void Terminate() => Stop();
 
     /// <summary>
     /// Stops system if it is active, and starts it again.
@@ -181,7 +153,7 @@ public sealed class VTSDiscoveryService : IService
                 $"{this} Failed to start VTubeStudio discovery system!".Out(ConsoleColor.Red);
                 break;
 
-            case StartResult.AlreadyStarted:
+            case StartResult.AlreadyStarted: // Replace with exception?
                 $"{this} Discovery system is already started.".Out(ConsoleColor.Yellow);
                 break;
 
@@ -190,6 +162,50 @@ public sealed class VTSDiscoveryService : IService
         }
     }
 
+    /// <summary>
+    /// Tries to stop the system.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="Stop"/>, doesn't log anything to console if system is already stopped.
+    /// </remarks>
+    /// <returns>
+    /// <see langword="true"/> - if stoppped successfully.
+    /// <see langword="false"/> - if stopping caused an exception. See logs for more info.
+    /// </returns>
+    public bool TryStop()
+    {
+        StopResult stopResult = StopInternal();
+        switch (stopResult)
+        {
+            case StopResult.Failed:
+                $"{this} Failed to stop VTubeStudio discovery system!".Out(ConsoleColor.Red);
+                return false;
+
+            case StopResult.AlreadyStopped:
+            case StopResult.Success: return true;
+            default: throw new SwitchExpressionException(stopResult);
+        }
+    }
+
+    public void Stop()
+    {
+        StopResult result = StopInternal();
+        switch (result)
+        {
+            case StopResult.Failed:
+                $"{this} Failed to stop VTubeStudio discovery system!".Out(ConsoleColor.Red);
+                break;
+
+            case StopResult.AlreadyStopped: // Replace with exception?
+                $"{this} Discovery system is already stopped.".Out(ConsoleColor.Yellow);
+                break;
+
+            case StopResult.Success: break;
+            default: throw new SwitchExpressionException(result);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static long NextWorkerCounter() => Interlocked.Increment(ref WorkerCounter);
     StartResult StartInternal()
     {
@@ -237,7 +253,7 @@ public sealed class VTSDiscoveryService : IService
                 lock (Lock)
                 {
                     long tick = Environment.TickCount64;
-                    foreach (var ep in m_EndPoints)
+                    foreach (var ep in EndPoints)
                     {
                         long delta = tick - ep.LastKeepAliveTick;
                         if (delta > maxAllowed) endPoints.Add(ep);
@@ -245,10 +261,9 @@ public sealed class VTSDiscoveryService : IService
 
                     foreach (var ep in endPoints)
                     {
-                        m_EndPoints.Remove(ep);
+                        try { EndPoints.Remove(ep); }
+                        catch (Exception ex) { ex.Out($"{this} VTSEndPoint removal exception!\n"); }
                         ep.Kill();
-                        OnEndPointRemoved?.Invoke(ep);
-                        OnEndPointsChanged?.Invoke(m_EndPoints);
                     }
                 }
             }
@@ -332,16 +347,15 @@ public sealed class VTSDiscoveryService : IService
                     lock (Lock)
                     {
                         token.ThrowIfCancellationRequested();
-                        var match = m_EndPoints.FirstOrDefault(e => e.InstanceID == data.InstanceID);
+                        var match = EndPoints.FirstOrDefault(e => e.InstanceID == data.InstanceID);
                         if (match is not null)
                         {
                             if (match.Port != data.Port)
                             {
                                 $"{this} Detected port change in remote VTude Studio #{match.InstanceID}. Active connections will be killed and restarted.".Out(ConsoleColor.Yellow);
-                                m_EndPoints.Remove(match);
+                                try { EndPoints.Remove(match); }
+                                catch (Exception ex) { ex.Out($"{this} VTSEndPoint removal exception!\n"); }
                                 match.Kill();
-                                OnEndPointRemoved?.Invoke(match);
-                                OnEndPointsChanged?.Invoke(m_EndPoints);
                             }
                             else
                             {
@@ -360,9 +374,8 @@ public sealed class VTSDiscoveryService : IService
                                 WindowTitle = data.WindowTitle ?? string.Empty,
                             };
                             $"{this} Discovered new VTube Studio instance! #{ep.InstanceID}".Out(ConsoleColor.Gray);
-                            m_EndPoints.Add(ep);
-                            OnEndPointAdded?.Invoke(ep);
-                            OnEndPointsChanged?.Invoke(m_EndPoints);
+                            try { EndPoints.Add(ep); } // Does not revert on exception, in case the refernce is still valid to use.
+                            catch (Exception ex) { ex.Out($"{this} VTSEndPoint addition exception!\n"); }
                         }
                     }
                 }
@@ -392,49 +405,6 @@ public sealed class VTSDiscoveryService : IService
         $"{this} Discovery worker #{id} quit.".Out(ConsoleColor.Gray);
     }
 
-    /// <summary>
-    /// Troes to stop the system.
-    /// </summary>
-    /// <remarks>
-    /// Unlike <see cref="Stop"/>, doesn't log anything to console if system is already stopped.
-    /// </remarks>
-    /// <returns>
-    /// <see langword="true"/> - if stoppped successfully.
-    /// <see langword="false"/> - if stopping caused an exception. See logs for more info.
-    /// </returns>
-    public bool TryStop()
-    {
-        StopResult stopResult = StopInternal();
-        switch (stopResult)
-        {
-            case StopResult.Failed:
-                $"{this} Failed to stop VTubeStudio discovery system!".Out(ConsoleColor.Red);
-                return false;
-
-            case StopResult.AlreadyStopped:
-            case StopResult.Success: return true;
-            default: throw new SwitchExpressionException(stopResult);
-        }
-    }
-
-    public void Stop()
-    {
-        StopResult result = StopInternal();
-        switch (result)
-        {
-            case StopResult.Failed:
-                $"{this} Failed to stop VTubeStudio discovery system!".Out(ConsoleColor.Red);
-                break;
-
-            case StopResult.AlreadyStopped:
-                $"{this} Discovery system is already stopped.".Out(ConsoleColor.Yellow);
-                break;
-
-            case StopResult.Success: break;
-            default: throw new SwitchExpressionException(result);
-        }
-    }
-
     StopResult StopInternal()
     {
         Lock.Enter();
@@ -462,4 +432,10 @@ public sealed class VTSDiscoveryService : IService
     }
 
     public override string ToString() => $"[{nameof(VTSDiscoveryService)}]";
+
+    static class KnownEventArgs
+    {
+        public static readonly PropertyChangingEventArgs ActiveChanging = new(nameof(Active));
+        public static readonly PropertyChangedEventArgs ActiveChanged = new(nameof(Active));
+    }
 }

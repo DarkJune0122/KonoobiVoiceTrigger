@@ -35,7 +35,7 @@ public sealed class VTSSocket : IDisposable
 
     public Task ConnectAsync(Uri uri)
     {
-        using (Lock.EnterScope())
+        lock (Lock)
         {
             Token.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(Disposed, this);
@@ -54,7 +54,7 @@ public sealed class VTSSocket : IDisposable
 
     ValueTask SendAsync(ReadOnlySpan<byte> bytes, WebSocketMessageType type, bool endOfMessage)
     {
-        using (Lock.EnterScope())
+        lock (Lock)
         {
             Token.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(Disposed, this);

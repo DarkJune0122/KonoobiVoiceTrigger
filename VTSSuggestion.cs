@@ -6,7 +6,7 @@
 //  Better will be to jusy return the VTSExtensions.Async<...>(...) task,
 //  and let the call-site await it instead.
 //  Functionally, nothing changes, but it reduces allocations/GC pressure and ThreadPool usage.
-using System.Diagnostics.CodeAnalysis;
+/*using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
@@ -484,4 +484,4 @@ internal static class VTSEnumDescriptor<T> where T : unmanaged, Enum
     {
         throw new NotImplementedException();
     }
-}
+}*/

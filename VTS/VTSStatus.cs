@@ -3,7 +3,7 @@
 public enum VTSStatus : byte
 {
     Offline,
-    Pending,
-    Online,
+    Connecting,
+    Authenticating,
     Authenticated,
 }

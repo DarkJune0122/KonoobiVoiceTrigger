@@ -8,6 +8,12 @@ public sealed class VTSAuthenticationTokenResponseData : VTSResponseData
 {
     [JsonPropertyName("authenticationToken")] public string? AuthenticationToken { get; set; }
 
+    public override void Reset()
+    {
+        base.Reset();
+        AuthenticationToken = default;
+    }
+
     //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     //{
     //    AppendLine(b, prefix, AuthenticationToken);

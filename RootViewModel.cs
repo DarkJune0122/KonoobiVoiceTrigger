@@ -353,7 +353,7 @@ public sealed partial class RootViewModel : ObservableObject
                 });
                 if (hotkeys.ResolveSuccess(out var result) && result.Data is not null)
                 {
-                    if (result.Data.AvailableHotkeys is null || result.Data.AvailableHotkeys.Length == 0)
+                    if (result.Data.AvailableHotkeys is null || result.Data.AvailableHotkeys.Count == 0)
                     {
                         if (SelectedHotkey is not null)
                             Hotkeys = [SelectedHotkey];
@@ -526,7 +526,7 @@ public sealed partial class RootViewModel : ObservableObject
                 $"Expressions collection is null! Cannot update current triggered state!".Out(ConsoleColor.Yellow);
                 return;
             }
-            if (response.Data.Expressions.Length != 1)
+            if (response.Data.Expressions.Count != 1)
             {
                 $"Multiple expressions listed under one file! Triggered state might be inaccurate.".Out(ConsoleColor.Yellow);
             }

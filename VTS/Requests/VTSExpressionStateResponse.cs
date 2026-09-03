@@ -6,10 +6,19 @@ namespace VoiceTrigger.VTS.Requests;
 public sealed class VTSExpressionStateResponse : VTSResponse<VTSExpressionStateResponseData>;
 public sealed class VTSExpressionStateResponseData : VTSResponseData
 {
-    [JsonPropertyName("modelID")] public required string? ModelID { get; init; }
-    [JsonPropertyName("modelName")] public required string? ModelName { get; init; }
-    [JsonPropertyName("modelLoaded")] public required bool ModelLoaded { get; init; }
-    [JsonPropertyName("expressions")] public required Expression[]? Expressions { get; init; }
+    [JsonPropertyName("modelID")] public string? ModelID { get; set; }
+    [JsonPropertyName("modelName")] public string? ModelName { get; set; }
+    [JsonPropertyName("modelLoaded")] public bool ModelLoaded { get; set; }
+    [JsonPropertyName("expressions")] public List<Expression>? Expressions { get; set; }
+
+    public override void Reset()
+    {
+        base.Reset();
+        ModelID = default;
+        ModelName = default;
+        ModelLoaded = default;
+        Expressions?.Clear();
+    }
 
     //public override StringBuilder ToString(StringBuilder b, string prefix = "")
     //{
@@ -22,14 +31,14 @@ public sealed class VTSExpressionStateResponseData : VTSResponseData
 
     public readonly struct Expression
     {
-        [JsonPropertyName("name")] public required string? Name { get; init; }
-        [JsonPropertyName("file")] public required string? File { get; init; }
-        [JsonPropertyName("active")] public required bool Active { get; init; }
-        [JsonPropertyName("deactivateWhenKeyIsLetGo")] public required bool DeactivateWhenKeyIsLetGo { get; init; }
-        [JsonPropertyName("autoDeactivateAfterSeconds")] public required bool AutoDeactivateAfterSeconds { get; init; }
-        [JsonPropertyName("secondsRemaining")] public required float SecondsRemaining { get; init; }
-        [JsonPropertyName("usedInHotkeys")] public required Hotkey[]? UsedInHotkeys { get; init; }
-        [JsonPropertyName("parameters")] public required Parameter[]? Parameters { get; init; }
+        [JsonPropertyName("name")] public string? Name { get; init; }
+        [JsonPropertyName("file")] public string? File { get; init; }
+        [JsonPropertyName("active")] public bool Active { get; init; }
+        [JsonPropertyName("deactivateWhenKeyIsLetGo")] public bool DeactivateWhenKeyIsLetGo { get; init; }
+        [JsonPropertyName("autoDeactivateAfterSeconds")] public bool AutoDeactivateAfterSeconds { get; init; }
+        [JsonPropertyName("secondsRemaining")] public float SecondsRemaining { get; init; }
+        [JsonPropertyName("usedInHotkeys")] public Hotkey[]? UsedInHotkeys { get; init; }
+        [JsonPropertyName("parameters")] public Parameter[]? Parameters { get; init; }
 
         public override string ToString() => VTSPackets.ToLoggingString(this);
         //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
@@ -51,8 +60,8 @@ public sealed class VTSExpressionStateResponseData : VTSResponseData
 
         public readonly struct Hotkey
         {
-            [JsonPropertyName("name")] public required string? Name { get; init; }
-            [JsonPropertyName("id")] public required string? ID { get; init; }
+            [JsonPropertyName("name")] public string? Name { get; init; }
+            [JsonPropertyName("id")] public string? ID { get; init; }
 
             public override string ToString() => VTSPackets.ToLoggingString(this);
             //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);
@@ -68,8 +77,8 @@ public sealed class VTSExpressionStateResponseData : VTSResponseData
 
         public readonly struct Parameter
         {
-            [JsonPropertyName("name")] public required string? Name { get; init; }
-            [JsonPropertyName("value")] public required float Value { get; init; }
+            [JsonPropertyName("name")] public string? Name { get; init; }
+            [JsonPropertyName("value")] public float Value { get; init; }
 
             public override string ToString() => VTSPackets.ToLoggingString(this);
             //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);

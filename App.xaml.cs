@@ -1,8 +1,8 @@
 ﻿using System.Drawing;
 using System.IO;
 using System.IO.Pipes;
-using System.Windows.Threading;
 using VoiceTrigger.Audio;
+using VoiceTrigger.Controls;
 using VoiceTrigger.Logging;
 using VoiceTrigger.VTS;
 
@@ -12,10 +12,12 @@ namespace VoiceTrigger;
 /// </summary>
 public partial class App : Application
 {
+    public static new App Current => (App)Application.Current;
+
     const string MutexName = "Sandcorp.VoiceTrigger.Singleton.Mutex";
     const string PipeName = "Sandcorp.VoiceTrigger.Singleton.Pipe";
     const string ShowWindowSignal = "show-window";
-    static readonly DispatcherTimer VTSRestartTimer = new();
+    //static readonly DispatcherTimer VTSRestartTimer = new();
     static CancellationTokenSource? SingletonSource;
     static Mutex? SingletonMutex;
 
@@ -30,6 +32,10 @@ public partial class App : Application
     public static Brush IndicatorIBOKBrush => (Brush)Current.Resources[nameof(IndicatorIBOKBrush)];
     public static Color IndicatorFrozenColor => (Color)Current.Resources[nameof(IndicatorFrozenColor)];
     public static Brush IndicatorFrozenBrush => (Brush)Current.Resources[nameof(IndicatorFrozenBrush)];
+
+    private readonly Lock StateLock = new();
+    private LoadingWindow? LoadingWindow;
+    private ApplicationState State;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -46,70 +52,71 @@ public partial class App : Application
             return;
         }
 
+        InitializationSequence();
+    }
+
+    void ShowInitializationIcon()
+    {
+        if (LoadingWindow is null)
+        {
+            LoadingWindow = new();
+            LoadingWindow.Show();
+            LoadingWindow.TriggerShow();
+        }
+    }
+
+    void HideInitializationIcon()
+    {
+        if (LoadingWindow is not null)
+        {
+            LoadingWindow.TriggerHide();
+            LoadingWindow = null;
+        }
+    }
+
+    async void InitializationSequence()
+    {
         try
         {
-            LoggerService.Instance.Initialize();
-            Initialize();
-            VTSDiscoveryService.Instance.Initialize();
-            //VTSService.Instance.Initialize();
-            SingletonSource = new();
-            _ = StartServerPipeAsync(SingletonSource.Token);
+            ShowInitializationIcon();
 
-            AudioCaptureService.Instance.Initialize();
-            //VTSRestartTimer.Tick += MakeRestartAttempt;
-            //VTSRestartTimer.Interval = TimeSpan.FromSeconds(1);
-            //VTSRestartTimer.Start();
+            // Allows icon to appear and syncronize properly.
+            await Task.Delay(TimeSpan.FromSeconds(LoadingWindow.FadeDuration));
+            await Dispatcher.InvokeAsync(() => { /* UI sync. */ });
+
+            await LoggerService.Instance.Initialize();
+            await Dispatcher.InvokeAsync(() =>
+            {
+                Initialize();
+                VTSDiscoveryService.Instance.Initialize();
+                //VTSService.Instance.Initialize();
+                SingletonSource = new();
+                _ = StartServerPipeAsync(SingletonSource.Token);
+
+                AudioCaptureService.Instance.Initialize();
+                //VTSRestartTimer.Tick += MakeRestartAttempt;
+                //VTSRestartTimer.Interval = TimeSpan.FromSeconds(1);
+                //VTSRestartTimer.Start();
+                MainWindow = new MainWindow();
+                MainWindow.Show();
+                HideInitializationIcon();
+            });
         }
-        catch (Exception ex) { ex.Out("Exception during app startup! Shutting down..."); Shutdown(); }
-    }
-
-    enum ExitStage : byte
-    {
-        Normal,
-        Terminating,
-        Terminated,
-    }
-
-    private readonly Lock InterruptLock = new();
-    private ExitStage InterruptStage;
-
-    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
-    {
-        base.OnSessionEnding(e);
-        lock (InterruptLock)
+        catch (Exception ex)
         {
-            if (InterruptStage == ExitStage.Terminated)
-            {
-                return; // Allows closing.
-            }
-            else if (InterruptStage == ExitStage.Terminating)
-            {
-                e.Cancel = true; // Cancels all termination attempts until application terminates from the fist one.
-                return;
-            }
-            // Starts termination sequence.
-            InterruptStage = ExitStage.Terminating;
-            e.Cancel = true;
+            ex.Out($"Exception during app startup! Shutting down...\n");
+            Shutdown();
         }
-
-        // Spawns a termination process.
-        // By the end of it application will close by itself.
-        ServiceTermination();
     }
 
-    private void MakeRestartAttempt(object? sender, EventArgs e)
+    async void TerminationSequence()
     {
-        VTubeStudio.Instance.Status.Out("Status: ", ConsoleColor.Gray);
-        if (VTubeStudio.Instance.Status == VTSStatus.Offline)
-            VTubeStudio.Instance.Start();
-    }
-
-    async void ServiceTermination()
-    {
-        // Note: Doesn't work. Application closes before termination.
-        // TODO: Fix termination sequence, either by providing async methods, or by properly releasing LoggerService from a Main Thread.
         try
         {
+            // TODO: Show UI "terminating" window, or an icon.
+            //  Or both - dim the screen, make it non-interactable, and show an unloading icon.
+            //  And don't forget to release all the mutex and dispose a singleton pipe after window closes!
+            //  Since now, the app itself will only quit when the icon animation will complete as well.
             SingletonSource?.Cancel();
             //VTubeStudio.Instance.Stop();
             //VTSService.Instance.Terminate();
@@ -118,9 +125,59 @@ public partial class App : Application
             Terminate();
             await LoggerService.Instance.Terminate();
         }
-        catch (Exception ex) { ex.Out($"Exception while terminating the entire app!\n"); }
-        lock (InterruptLock) InterruptStage = ExitStage.Terminated;
+        catch (Exception ex)
+        {
+            ex.Out($"Exception while terminating the entire app! Some settings might not have been saved.\n");
+        }
+        lock (StateLock) State = ApplicationState.Terminated;
         Shutdown();
+    }
+
+    enum ApplicationState : byte
+    {
+        Uninitialized,
+        Initializing,
+        Initialized,
+        Terminating,
+        Terminated,
+    }
+
+    public void TriggerShutdown()
+    {
+        lock (StateLock)
+        {
+            $"Shutdown triggered! State (locked): {State}".Out(ConsoleColor.Yellow);
+            if (State == ApplicationState.Terminated)
+            {
+                Shutdown();
+                return; // Allows closing.
+            }
+            else if (State == ApplicationState.Terminating)
+            {
+                return; // Cancels all termination attempts until application terminates from the fist one.
+            }
+
+            // Starts termination sequence.
+            State = ApplicationState.Terminating;
+        }
+
+        // Spawns a termination process.
+        // By the end of it application will close by itself.
+        TerminationSequence();
+    }
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        base.OnSessionEnding(e);
+        TriggerShutdown();
+        e.Cancel = true;
+    }
+
+    private void MakeRestartAttempt(object? sender, EventArgs e)
+    {
+        VTubeStudio.Instance.Status.Out("Status: ", ConsoleColor.Gray);
+        if (VTubeStudio.Instance.Status == VTSStatus.Offline)
+            VTubeStudio.Instance.Start();
     }
 
     protected override void OnExit(ExitEventArgs e)

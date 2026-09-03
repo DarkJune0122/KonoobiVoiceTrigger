@@ -1,4 +1,66 @@
-﻿//using CommunityToolkit.Mvvm.ComponentModel;
+﻿// VTSService:
+// 1. Warn if initialized without VTSDiscoveryService being active as well.
+// 2. Track new VTSEndPoints in VTSDiscoveryService.
+//    - Automatically initialize VTSConnections using those end-points.
+// 3. Track VTSEndPoint invalidation / VTSEndPoint removal from VTSDiscoveryService.
+//    - Terminate VTSConnections using those VTSEndPoints.
+//    - Do it unless it's a responsibility of a VTSConnection to do so.
+// 4. Notify about status changes (Active/Inactive).
+// 5. Handle all possible issues related to networking, log them, and make sure they never cause a crash.
+// 6. Additionally, later verify that App.cs doesn't cause any issues with its usage Pipes and Mutexes outside of a try block.
+
+// VTSConnection:
+// 1. Provide API to send requests.
+// 2. Provide API to receive request responses.
+// 3. Timeout active requests if associated VTSEndPoint closes.
+// 4. Provide UI-safe Status and Authenticated properties.
+// 5. Provide wrapper around it as a VTubeStudio, when using VTSService with only 1 instance allowed to exist at a time.
+// 6. Communicate using pooled network packets.
+//    - When applicable, use pre-serialized json payloads for immutable/pre-constructed packets.
+//    - Potentially allow to specify how a packet instance should be created (or retrieved from a static cache)
+// 7. Communicate using mutable(!) VTSPlugin data class.
+//    - (Optionally) Close and re-authenticate the connection if VTSPlugin data changes.
+// 8. Communicate using token from a token manager, attached to each VTSPlugin (depending on implementation, might be the same instance(?)).
+
+using System.Collections.ObjectModel;
+using VoiceTrigger.Logging;
+
+namespace VoiceTrigger.VTS;
+
+public sealed class VTSService : IService
+{
+    public static readonly VTSService Instance = new();
+
+    public ObservableCollection<VTSConnection> Connections = [];
+
+    readonly Lock Lock = new();
+
+    public void Initialize()
+    {
+        if (!VTSDiscoveryService.Instance.Active)
+        {
+            $"{this} {nameof(VTSDiscoveryService)} isn't active! Unless it's activated later, VTubeStudio plugin won't work!".Out(ConsoleColor.Red);
+        }
+
+        lock (Lock)
+        {
+
+        }
+    }
+
+    public void Terminate()
+    {
+        lock (Lock)
+        {
+
+        }
+    }
+
+    public override string ToString() => $"[{nameof(VTSService)}]";
+}
+
+
+//using CommunityToolkit.Mvvm.ComponentModel;
 //using System.Diagnostics.CodeAnalysis;
 //using VTS.Core;
 

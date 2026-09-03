@@ -6,10 +6,19 @@ namespace VoiceTrigger.VTS.Requests;
 public sealed class VTSModelHotkeysResponse : VTSResponse<VTSModelHotkeysResponseData>;
 public sealed class VTSModelHotkeysResponseData : VTSResponseData
 {
-    [JsonPropertyName("modelLoaded")] public required bool ModelLoaded { get; set; }
-    [JsonPropertyName("modelName")] public required string? ModelName { get; set; }
-    [JsonPropertyName("modelID")] public required string? ModelID { get; set; }
-    [JsonPropertyName("availableHotkeys")] public required Hotkey[]? AvailableHotkeys { get; set; }
+    [JsonPropertyName("modelLoaded")] public bool ModelLoaded { get; set; }
+    [JsonPropertyName("modelName")] public string? ModelName { get; set; }
+    [JsonPropertyName("modelID")] public string? ModelID { get; set; }
+    [JsonPropertyName("availableHotkeys")] public List<Hotkey>? AvailableHotkeys { get; set; }
+
+    public override void Reset()
+    {
+        base.Reset();
+        ModelLoaded = default;
+        ModelName = default;
+        ModelID = default;
+        AvailableHotkeys?.Clear();
+    }
 
     //public override StringBuilder ToString(StringBuilder b, string prefix = "")
     //{
@@ -22,12 +31,12 @@ public sealed class VTSModelHotkeysResponseData : VTSResponseData
 
     public readonly struct Hotkey
     {
-        [JsonPropertyName("name")] public required string? Name { get; init; }
-        [JsonPropertyName("type")] public required string? Type { get; init; }
-        [JsonPropertyName("description")] public required string? Description { get; init; }
-        [JsonPropertyName("file")] public required string? File { get; init; }
-        [JsonPropertyName("hotkeyID")] public required string? HotkeyID { get; init; }
-        [JsonPropertyName("onScreenButtonID")] public required int OnScreenButtonID { get; init; }
+        [JsonPropertyName("name")] public string? Name { get; init; }
+        [JsonPropertyName("type")] public string? Type { get; init; }
+        [JsonPropertyName("description")] public string? Description { get; init; }
+        [JsonPropertyName("file")] public string? File { get; init; }
+        [JsonPropertyName("hotkeyID")] public string? HotkeyID { get; init; }
+        [JsonPropertyName("onScreenButtonID")] public int OnScreenButtonID { get; init; }
 
         public override string ToString() => VTSPackets.ToLoggingString(this);
         //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);

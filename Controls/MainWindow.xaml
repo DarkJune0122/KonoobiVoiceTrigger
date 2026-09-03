@@ -261,11 +261,11 @@
                     <!--Spacing-->
                     <StackPanel Grid.Column="3" Orientation="Horizontal">
                         <Rectangle Fill="Cyan" MinWidth="8" MinHeight="8"
-                               Visibility="{Binding IsFrozen, Converter={x:Static c:BoolToVisibilityConverter.Instance}}"/>
+                               Visibility="{Binding IsFrozen, Converter={c:BoolToVisibilityConverter}}"/>
                         <Rectangle Fill="Red" MinWidth="8" MinHeight="8"
-                               Visibility="{Binding IsTriggered, Converter={x:Static c:BoolToVisibilityConverter.Instance}}"/>
+                               Visibility="{Binding IsTriggered, Converter={c:BoolToVisibilityConverter}}"/>
                         <Rectangle Fill="Yellow" MinWidth="8" MinHeight="8"
-                               Visibility="{Binding IsActivated, Converter={x:Static c:BoolToVisibilityConverter.Instance}}"/>
+                               Visibility="{Binding IsActivated, Converter={c:BoolToVisibilityConverter}}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="4" Orientation="Horizontal">
                         <ui:Button Command="{Binding UpdateStatesCommand}"
@@ -301,7 +301,7 @@
                                    ToolTipService.BetweenShowDelay="0"
                                    BorderBrush="Transparent" Background="Transparent" BorderThickness="0">
                             <ui:Button.Icon>
-                                <ui:SymbolIcon Symbol="{Binding AudioCaptureEnabled, Converter={x:Static c:StateToMicrophoneIconConcerter.Instance}}" Filled="True" />
+                                <ui:SymbolIcon Symbol="{Binding AudioCaptureEnabled, Converter={c:StateToMicrophoneIconConcerter}}" Filled="True" />
                             </ui:Button.Icon>
                         </ui:Button>
                         <ui:Button Click="Title_Theme"
@@ -345,7 +345,7 @@
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
                         <ui:TextBlock Text="{Binding FriendlyName}"
-                                      Opacity="{Binding ShowInactiveWarning, Converter={x:Static c:BoolToOpacityConverter.Instance}, ConverterParameter=invert}" />
+                                      Opacity="{Binding ShowInactiveWarning, Converter={c:BoolToOpacityConverter}, ConverterParameter=invert}" />
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
@@ -353,7 +353,7 @@
                            Visibility="{Binding Source={x:Static a:AudioCaptureService.Instance},
                                                 Path=SelectedAudioDevice.ShowInactiveWarning,
                                                 FallbackValue=false, TargetNullValue=false,
-                                                Converter={x:Static c:BoolToVisibilityConverter.Instance}}"
+                                                Converter={c:BoolToVisibilityConverter}}"
                            ToolTip="Currently selected audio device is invalid!"
                            ToolTipService.InitialShowDelay="0"
                            ToolTipService.BetweenShowDelay="0"/>
@@ -757,16 +757,16 @@
             --><!--Indicators--><!--
             <Grid Margin="4,0,4,0" Grid.Row="0" Grid.Column="1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={x:Static c:DoubleToPercentConverter.Instance}}"/>
-                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={x:Static c:DoubleToRemainingPercentConverter.Instance}}"/>
+                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={c:DoubleToPercentConverter}}"/>
+                    <ColumnDefinition Width="{Binding LeftAudioVolume, Converter={c:DoubleToRemainingPercentConverter}}"/>
                 </Grid.ColumnDefinitions>
                 <Rectangle Grid.Column="0" Fill="LimeGreen" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                 <Rectangle Grid.Column="1" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
             </Grid>
             <Grid Margin="4,0,4,0" Grid.Row="2" Grid.Column="1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={x:Static c:DoubleToPercentConverter.Instance}}"/>
-                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={x:Static c:DoubleToRemainingPercentConverter.Instance}}"/>
+                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={c:DoubleToPercentConverter}}"/>
+                    <ColumnDefinition Width="{Binding RightAudioVolume, Converter={c:DoubleToRemainingPercentConverter}}"/>
                 </Grid.ColumnDefinitions>
                 <Rectangle Grid.Column="0" Fill="LimeGreen" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                 <Rectangle Grid.Column="1" Fill="DimGray" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />

@@ -12,6 +12,13 @@ public sealed class VTSExpressionStateRequestData : VTSRequestData
     [JsonPropertyName("details")] public required bool Details { get; set; }
     [JsonPropertyName("expressionFile")] public required string? ExpressionFile { get; set; }
 
+    public override void Reset()
+    {
+        base.Reset();
+        Details = default;
+        ExpressionFile = default;
+    }
+
     //public override StringBuilder ToString(StringBuilder b, string prefix = "")
     //{
     //    base.ToString(b, prefix);

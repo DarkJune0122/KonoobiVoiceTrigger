@@ -6,20 +6,38 @@ namespace VoiceTrigger.VTS.Requests;
 public sealed class VTSCurrentModelResponse : VTSResponse<VTSCurrentModelsResponseData>;
 public sealed class VTSCurrentModelsResponseData : VTSResponseData
 {
-    [JsonPropertyName("modelLoaded")] public required bool ModelLoaded { get; set; }
-    [JsonPropertyName("modelName")] public required string? ModelName { get; set; }
-    [JsonPropertyName("modelID")] public required string? ModelID { get; set; }
-    [JsonPropertyName("vtsModelName")] public required string? VTSModelName { get; set; }
-    [JsonPropertyName("vtsModelIconName")] public required string? VTSModelIconName { get; set; }
-    [JsonPropertyName("live2DModelName")] public required string? Live2DModelName { get; set; }
-    [JsonPropertyName("modelLoadTime")] public required int ModelLoadTime { get; set; }
-    [JsonPropertyName("timeSinceModelLoaded")] public required int TimeSinceModelLoaded { get; set; }
-    [JsonPropertyName("numberOfLive2DParameters")] public required int NumberOfLive2DParameters { get; set; }
-    [JsonPropertyName("numberOfLive2DArtmeshes")] public required int NumberOfLive2DArtmeshes { get; set; }
-    [JsonPropertyName("hasPhysicsFile")] public required bool HasPhysicsFile { get; set; }
-    [JsonPropertyName("numberOfTextures")] public required int NumberOfTextures { get; set; }
-    [JsonPropertyName("textureResolution")] public required int TextureResolution { get; set; }
-    [JsonPropertyName("modelPosition")] public required Position ModelPosition { get; set; }
+    [JsonPropertyName("modelLoaded")] public bool ModelLoaded { get; set; }
+    [JsonPropertyName("modelName")] public string? ModelName { get; set; }
+    [JsonPropertyName("modelID")] public string? ModelID { get; set; }
+    [JsonPropertyName("vtsModelName")] public string? VTSModelName { get; set; }
+    [JsonPropertyName("vtsModelIconName")] public string? VTSModelIconName { get; set; }
+    [JsonPropertyName("live2DModelName")] public string? Live2DModelName { get; set; }
+    [JsonPropertyName("modelLoadTime")] public int ModelLoadTime { get; set; }
+    [JsonPropertyName("timeSinceModelLoaded")] public int TimeSinceModelLoaded { get; set; }
+    [JsonPropertyName("numberOfLive2DParameters")] public int NumberOfLive2DParameters { get; set; }
+    [JsonPropertyName("numberOfLive2DArtmeshes")] public int NumberOfLive2DArtmeshes { get; set; }
+    [JsonPropertyName("hasPhysicsFile")] public bool HasPhysicsFile { get; set; }
+    [JsonPropertyName("numberOfTextures")] public int NumberOfTextures { get; set; }
+    [JsonPropertyName("textureResolution")] public int TextureResolution { get; set; }
+    [JsonPropertyName("modelPosition")] public Position ModelPosition { get; set; }
+
+    public override void Reset()
+    {
+        base.Reset();
+        ModelLoaded = default;
+        ModelID = default;
+        VTSModelName = default;
+        VTSModelIconName = default;
+        Live2DModelName = default;
+        ModelLoadTime = default;
+        TimeSinceModelLoaded = default;
+        NumberOfLive2DParameters = default;
+        NumberOfLive2DArtmeshes = default;
+        HasPhysicsFile = default;
+        NumberOfTextures = default;
+        TextureResolution = default;
+        ModelPosition = default;
+    }
 
     //public override StringBuilder ToString(StringBuilder b, string prefix = "")
     //{
@@ -42,10 +60,10 @@ public sealed class VTSCurrentModelsResponseData : VTSResponseData
 
     public readonly struct Position
     {
-        [JsonPropertyName("positionX")] public required float PositionX { get; init; }
-        [JsonPropertyName("positionY")] public required float PositionY { get; init; }
-        [JsonPropertyName("rotation")] public required float Rotation { get; init; }
-        [JsonPropertyName("size")] public required float Size { get; init; }
+        [JsonPropertyName("positionX")] public float PositionX { get; init; }
+        [JsonPropertyName("positionY")] public float PositionY { get; init; }
+        [JsonPropertyName("rotation")] public float Rotation { get; init; }
+        [JsonPropertyName("size")] public float Size { get; init; }
 
         public override string ToString() => VTSPackets.ToLoggingString(this);
         //public override string? ToString() => ToString(VTSHelpers.DefaultPrefix);

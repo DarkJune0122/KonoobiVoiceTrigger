@@ -1,11 +1,16 @@
-﻿using VoiceTrigger.Logging;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.ComponentModel;
+using VoiceTrigger.Logging;
 
 namespace VoiceTrigger.VTS;
 
 /// <summary>
 /// Describes VTubeStudio instance.
 /// </summary>
-public sealed class VTSEndPoint
+/// <remarks>
+/// If retrieved from <see cref="VTSDiscoveryService.EndPoints"/> - means th e<see cref="Alive"/> status is managed by said service.
+/// </remarks>
+public sealed partial class VTSEndPoint : ObservableObject
 {
     public delegate void ActiveChangedEventHandler(bool active);
     public delegate void WindowTitleChangedEventHandler(string title);
@@ -27,7 +32,7 @@ public sealed class VTSEndPoint
     /// </summary>
     public CancellationTokenSource CancellationSource { get; } = new();
     /// <summary>
-    /// Last tick when a keep alive event occured.
+    /// Last tick when any keep alive event occured.
     /// </summary>
     public long LastKeepAliveTick
     {
@@ -68,8 +73,10 @@ public sealed class VTSEndPoint
             {
                 if (field != value)
                 {
-                    Interlocked.Exchange(ref field, value);
+                    OnPropertyChanging(KnownEventArgs.ActiveChanging);
+                    field = value;
                     OnActiveChanged?.Invoke(value);
+                    OnPropertyChanged(KnownEventArgs.ActiveChanged);
                 }
             }
         }
@@ -92,8 +99,10 @@ public sealed class VTSEndPoint
             {
                 if (field != value)
                 {
-                    Interlocked.Exchange(ref field, value);
+                    OnPropertyChanging(KnownEventArgs.WindowTitleChanging);
+                    field = value;
                     OnWindowTitleChanged?.Invoke(value);
+                    OnPropertyChanged(KnownEventArgs.WindowTitleChanged);
                 }
             }
         }
@@ -124,4 +133,12 @@ public sealed class VTSEndPoint
     }
 
     public override string ToString() => $"[{nameof(VTSEndPoint)} #{InstanceID}]";
+
+    static class KnownEventArgs
+    {
+        public static readonly PropertyChangingEventArgs ActiveChanging = new(nameof(Active));
+        public static readonly PropertyChangedEventArgs ActiveChanged = new(nameof(Active));
+        public static readonly PropertyChangingEventArgs WindowTitleChanging = new(nameof(WindowTitle));
+        public static readonly PropertyChangedEventArgs WindowTitleChanged = new(nameof(WindowTitle));
+    }
 }

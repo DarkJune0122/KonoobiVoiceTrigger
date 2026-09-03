@@ -53,3 +53,25 @@ Model dropdown lists models found in all VTSConnections, but in a first version 
 ## Warudo Preset
 Warudo preset is WIP. Goals are not clear, but anything that will allow tracking a state of a specific animation,
 as well as identifying a model with that specific animation, will do.
+
+# Performance
+Since now Plugin might be quite bulky - we can provide an option to disable UI entirely, leaving only application logic.
+This can be a separate executable, or we can provide it as an option in the app itself.
+We can remember this setting, and choose whether to initialize the window at all on the next session.
+However, we still need to initialize a tray icon for the app, so user can close the program, or open it again.
+
+Because of this, we need to assume that UI and Logic will be separated.
+Useful WPF practices on this can be found amonst other amazing ideas and suggestions here:
+https://metashapes.com/blog/not-shooting-foot-wpf-best-practices/
+Only models (Services, etc.) and view-models (logic: RootViewModel, etc.) will persist.
+View and Controls (MainWindow and components used on it) will not be initialized, or will be terminated when user selects performance mode.
+
+This also means that ViewModels should only have the logic.
+Animations, color selection, and any other UI-related info should be decided on a UI-layer.
+Thus, performance on the UI layer is also important.
+
+# Packets & API (VTS)
+All Response packets should not have any required fields.
+This is to make a few optimizations possible, if we were to pursue them.
+However, Request packets should have required keywords, as it will prompt users making custom requests to initialize all properties.
+This is important for avoiding exceptions, but might be changed if any of our target .NET version won't support it.

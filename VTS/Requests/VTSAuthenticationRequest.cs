@@ -13,6 +13,14 @@ public sealed class VTSAuthenticationRequestData : VTSRequestData
     [JsonPropertyName("pluginDeveloper")] public required string? PluginDeveloper { get; set; }
     [JsonPropertyName("authenticationToken")] public required string? AuthenticationToken { get; set; }
 
+    public override void Reset()
+    {
+        base.Reset();
+        PluginName = default;
+        PluginDeveloper = default;
+        AuthenticationToken = default;
+    }
+
     //public override StringBuilder ToString(StringBuilder b, string prefix = DefaultPrefix)
     //{
     //    base.ToString(b, prefix);

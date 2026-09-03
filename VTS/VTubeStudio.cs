@@ -101,7 +101,7 @@ public sealed partial class VTubeStudio : ObservableObject
     {
         // TODO fix issues - check logs or wait for 20s before approving authentuication request.
         $"{this} {nameof(VTSSocket)} started.".Out();
-        SetStatus(socket, VTSStatus.Pending);
+        SetStatus(socket, VTSStatus.Connecting);
         CancellationToken token = socket.Token;
         while (!token.IsCancellationRequested)
         {
@@ -114,7 +114,7 @@ public sealed partial class VTubeStudio : ObservableObject
 
                 // Establishes connection with a server.
                 await socket.ConnectAsync(uri);
-                SetStatus(socket, VTSStatus.Online);
+                SetStatus(socket, VTSStatus.Authenticating);
                 $"{this} Successfully connected to VTube Studio!".Out(ConsoleColor.Green);
 
                 Task a = Receive(socket);
@@ -319,7 +319,7 @@ public sealed partial class VTubeStudio : ObservableObject
             catch (Exception ex) { ex.Out(ToString()); }
 
             const int RestartDelayMs = 500;
-            SetStatus(socket, VTSStatus.Pending);
+            SetStatus(socket, VTSStatus.Connecting);
             $"{this} Restarting {nameof(VTSSocket)} after {RestartDelayMs} ms.".Out();
             try
             {

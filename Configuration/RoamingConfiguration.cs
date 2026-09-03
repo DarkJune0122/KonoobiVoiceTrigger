@@ -7,7 +7,7 @@ public sealed class RoamingConfiguration : ConfigurationTemplate
 {
     [JsonIgnore] protected override string FilePath => RoamingConfigurationFilePath;
 
-    [JsonInclude] public ushort VTubeStudioDiscoveryPort { get; set; } = VTSDiscoveryService.KnownVTubeStudioDiscoveryPort;
+    [JsonInclude] public ushort VTubeStudioDiscoveryPort { get; set; } = VTSDiscoveryService.DefaultVTubeStudioDiscoveryPort;
     [JsonInclude]
     public double VTubeStudioDiscoveryRestartDelay
     {
