@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using VoiceTrigger.Logging;
@@ -16,6 +18,18 @@ public static class VTSPackets
     public const string APIVersionJsonPropertyName = "apiVersion";
     public const string RequestIDJsonPropertyName = "requestID";
     public const string MessageTypeJsonPropertyName = "messageType";
+    public const string DataJsonPropertyName = "data";
+    public const string ErrorIDJsonPropertyName = "errorID";
+    public const string MessageJsonPropertyName = "message";
+    /// <summary>
+    /// VTube Studio uses UFT8 encoding.
+    /// This property serves as a single source of truth for all APIs and plugins to use.
+    /// </summary>
+    public static Encoding Encoding
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => Encoding.UTF8;
+    }
     /// <summary>
     /// Dummy successful request result.
     /// </summary>

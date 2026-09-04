@@ -1,15 +1,15 @@
 ﻿using System.Buffers;
 using System.Net.WebSockets;
 using System.Text;
-using System.Text.Json;
 using VoiceTrigger.Logging;
 
 namespace VoiceTrigger.VTS;
 
 public sealed class VTSSocket : IDisposable
 {
-    const int InitialBufferSize = 1024 * 64;
-    const int MaxBufferSize = 1024 * 1024 * 16;
+    const int DefaultInitialBufferSize = 1024 * 64;
+    const int DefaultMaxBufferSize = 1024 * 1024 * 64;
+    const int MinimumBufferSize = 1024;
     public delegate void StartHandler(VTSSocket client);
     public delegate void ReceiveHandler(VTSSocket client, ReadOnlySpan<char> message);
     public delegate void StopHandler(VTSSocket client);
@@ -18,19 +18,30 @@ public sealed class VTSSocket : IDisposable
     public readonly ClientWebSocket WebSocket;
     public readonly Encoding Encoding;
 
-    byte[] Buffer = ArrayPool<byte>.Shared.Rent(InitialBufferSize);
     readonly SemaphoreSlim ReceiveSemaphore = new(1); // WARNING! Mutexes here break in Async code! Replace with SemaphoreSlim!
     readonly SemaphoreSlim SendSemaphore = new(1); // WARNING! Mutexes here break in Async code! Replace with SemaphoreSlim!
     readonly Lock Lock = new();
-    volatile bool IsStarted;
-    volatile bool Disposed;
+    readonly int MaxBufferSize;
+    bool IsStarted;
+    bool Disposed;
+    byte[] Buffer;
 
-    public VTSSocket(Encoding? encoding = null)
+    public VTSSocket(Encoding? encoding = null, int initialBufferSize = DefaultInitialBufferSize, int maxBufferSize = DefaultMaxBufferSize)
     {
+        if (initialBufferSize > maxBufferSize)
+        {
+            $"{nameof(initialBufferSize)} should be larger than {nameof(maxBufferSize)}! Capping to the largest valud amonst them.".Out(ConsoleColor.Red);
+            maxBufferSize = initialBufferSize;
+        }
+        initialBufferSize = Math.Max(MinimumBufferSize, initialBufferSize);
+        maxBufferSize = Math.Max(MinimumBufferSize, maxBufferSize);
+
         Encoding = encoding ?? Encoding.UTF8;
         Identity = new();
         Token = Identity.Token;
         WebSocket = new();
+        MaxBufferSize = maxBufferSize;
+        Buffer = ArrayPool<byte>.Shared.Rent(initialBufferSize);
     }
 
     public Task ConnectAsync(Uri uri)
@@ -71,8 +82,10 @@ public sealed class VTSSocket : IDisposable
         await SendSemaphore.WaitAsync();
         try
         {
+            Token.ThrowIfCancellationRequested();
             await WebSocket.SendAsync(new Memory<byte>(bytes, 0, length), type, endOfMessage, Token);
         }
+        catch (OperationCanceledException) { /* Normal */ }
         finally
         {
             SendSemaphore.Release();
@@ -80,6 +93,10 @@ public sealed class VTSSocket : IDisposable
         }
     }
 
+    /// <remarks>
+    /// Result mey be disposed for the best performance!
+    /// But disposed only once!
+    /// </remarks>
     public readonly struct ReceiveResult(bool success, char[]? buffer, int length) : IDisposable
     {
         public static readonly ReceiveResult Faulted = new(false, null, 0);
@@ -92,35 +109,9 @@ public sealed class VTSSocket : IDisposable
         }
     }
 
-    public async Task<T?> ReceiveAsync<T>()
-    {
-        ReceiveResult result = await ReceiveAsync();
-        if (!result.Success)
-        {
-            $"Failed to receive ({typeof(T)}) from the server!".Out();
-        }
-
-        try
-        {
-            T? data = JsonSerializer.Deserialize<T>(result.Message.Span, VTSPackets.JsonOptions);
-            $"Received:\n{data}".Out(ConsoleColor.Cyan);
-            return data;
-        }
-        catch (JsonException)
-        {
-            $"Failed to deserialize {typeof(T)} from data:\n{new string(result.Message.Span)}".Out();
-        }
-        finally
-        {
-            result.Dispose();
-        }
-
-        return default;
-    }
-
     public async Task<ReceiveResult> ReceiveAsync()
     {
-        using (Lock.EnterScope())
+        lock (Lock)
         {
             Token.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(Disposed, this);
@@ -175,6 +166,7 @@ public sealed class VTSSocket : IDisposable
                 }
             }
         }
+        catch (OperationCanceledException) { /* Normal */ }
         finally
         {
             ReceiveSemaphore.Release();
@@ -187,7 +179,7 @@ public sealed class VTSSocket : IDisposable
 
     public void Dispose()
     {
-        using (Lock.EnterScope())
+        lock (Lock)
         {
             ObjectDisposedException.ThrowIf(Disposed, this);
             Disposed = true;

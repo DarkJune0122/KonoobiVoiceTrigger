@@ -70,10 +70,10 @@ public class VTSResponseData : VTSPacketData
     public bool Succeeded => ErrorID == 0;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    [JsonPropertyName("errorID")] public long ErrorID { get; set; }
+    [JsonPropertyName(VTSPackets.ErrorIDJsonPropertyName)] public ErrorID ErrorID { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    [JsonPropertyName("message")] public string? Message { get; set; }
+    [JsonPropertyName(VTSPackets.MessageJsonPropertyName)] public string? Message { get; set; }
 
     public override void Reset()
     {

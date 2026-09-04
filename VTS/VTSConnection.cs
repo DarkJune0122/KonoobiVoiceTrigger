@@ -155,11 +155,12 @@ public partial class VTSConnection(VTSEndPoint ep) : ObservableObject
             ConnectionSequence(socket, uri);
             return ConnectResult.Success;
         }
-        catch (Exception ex)
+        catch (Exception ex) // No handler for cancellation, as it is expected to never happen within a lock scope.
         {
             ex.Out(this);
             Socket = null;
-            ResetStatusCore();
+            try { Status = VTSStatus.Offline; }
+            catch (Exception ex2) { ex2.Out($"{this} Failed to reset the status!\n"); }
             return ConnectResult.Failed;
         }
         finally { Lock.Exit(); }
@@ -189,31 +190,6 @@ public partial class VTSConnection(VTSEndPoint ep) : ObservableObject
                 }
             }
         }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ReportStatus(VTSSocket? identity, VTSStatus status)
-    {
-        lock (Lock) ReportStatus(identity, status);
-    }
-    void ReportStatusCore(VTSSocket? socket, VTSStatus status)
-    {
-        if (Socket == socket)
-        {
-            try { Status = VTSStatus.Offline; }
-            catch (Exception ex) { ex.Out($"{this} Failed to set status to {status}!\n"); }
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ResetStatus()
-    {
-        lock (Lock) ResetStatusCore();
-    }
-    void ResetStatusCore()
-    {
-        try { Status = VTSStatus.Offline; }
-        catch (Exception ex) { ex.Out($"{this} Failed to reset the status!\n"); }
     }
 
     DisconnectResult DisconnectInternal()
@@ -306,11 +282,22 @@ public partial class VTSConnection(VTSEndPoint ep) : ObservableObject
 /// <remarks>
 /// Not finished - a lot of possible requests are still missing!
 /// </remarks>
+/// TODO: Implement using IVTSConnection/IVTSInstance interface instead, for better compatibility with custom implementations.
 public static class VTSConnectionExtensions
 {
     public static ValueTask<VTSAPIStateResponse> RequestAPIState(this VTSConnection vts)
     {
         return vts.Request<VTSAPIStateResponse>(VTSAPIStateRequest.Instance);
+    }
+
+    public static void RequestAIPState(this VTSConnection vts, Action<VTSAPIStateResponse> handler)
+    {
+
+    }
+
+    public static void RequestAIPState(this VTSConnection vts, Action<VTSAPIStateResponse> onSuccess, Action onFailed)
+    {
+
     }
 
     public static ValueTask<VTSExpressionStateResponse> RequestExpressionState(this VTSConnection vts, string? expressionFile, bool details = false)
