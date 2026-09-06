@@ -5,6 +5,10 @@ namespace VoiceTrigger.VTS.Packets;
 // Note: Maybe use pool TData and Rent/Return it on Json deserialization/disposal?
 public class VTSRequestTemplate : VTSPacket
 {
+    // For simplicity, those two fields are filled-in automatically.
+    protected const string DefaultAPIName = "VTubeStudioPublicAPI";
+    protected const string DefaultAPIVersion = "1.0";
+
     // MessageType and RequestID is are filled in by entity constructing the request.
     [JsonPropertyName("apiName")] public override string? APIName { get; set; } = DefaultAPIName;
     [JsonPropertyName("apiVersion")] public override string? APIVersion { get; set; } = DefaultAPIVersion;

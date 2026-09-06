@@ -49,9 +49,7 @@ public static class VTSExamples
     public static ValueTask<ReadOnlySpan<byte>> RequestJson(object input)
     {
         // Do some work with VTS instance.
-        
-
-        return 
+        throw new NotImplementedException();
     }
 }
 

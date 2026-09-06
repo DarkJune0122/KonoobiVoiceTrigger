@@ -69,7 +69,14 @@ public static class VTSPackets
     {
         AllowTrailingCommas = true,
         CommentHandling = JsonCommentHandling.Skip,
-        MaxDepth = 0, // Maximum.
+    };
+    /// <summary>
+    /// Options used with internal <see cref="Utf8JsonReader"/>s.
+    /// </summary>
+    public static readonly JsonReaderOptions ReaderOptions = new()
+    {
+        AllowTrailingCommas = true,
+        CommentHandling = JsonCommentHandling.Skip,
     };
 
     [return: NotNullIfNotNull(nameof(obj))]

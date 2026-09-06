@@ -23,6 +23,7 @@
 // 8. Communicate using token from a token manager, attached to each VTSPlugin (depending on implementation, might be the same instance(?)).
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using VoiceTrigger.Logging;
@@ -31,6 +32,16 @@ using VoiceTrigger.VTS.Requests;
 
 namespace VoiceTrigger.VTS;
 
+/// <summary>
+/// Class communicating with an VTube Studio instance.
+/// </summary>
+/// <remarks>
+/// <para>
+/// v1.0:
+/// To support StackOnly Json Deserialization in the future, there has to be a Request method returning raw bytes.
+/// This is so we can use it as ReadOnlySpan in the deserializer.
+/// </para>
+/// </remarks>
 public partial class VTSConnection(VTSEndPoint ep) : ObservableObject
 {
     // TODO: Add EndPoint broken callback. Delist VTSConnection when this happens. Notify users about this as well.
@@ -274,6 +285,86 @@ public partial class VTSConnection(VTSEndPoint ep) : ObservableObject
     }
 
     public override string ToString() => $"[{nameof(VTSConnection)} #{ID}]";
+}
+
+/// <summary>
+/// Json result of the request, normally in UTF8 format.
+/// </summary>
+/// <remarks>
+/// 
+/// </remarks>
+//public readonly ref struct JsonResult
+//{
+//    public readonly bool Success;
+//    public readonly ReadOnlySpan<byte> RequestID;
+//    public readonly ReadOnlySpan<byte> DataJson;
+//}
+
+public readonly ref struct Packet(
+    ReadOnlySpan<char> apiName, ReadOnlySpan<char> apiVersion,
+    ReadOnlySpan<char> messageType, ReadOnlySpan<char> requestID, ReadOnlySpan<char> data)
+{
+    public readonly ReadOnlySpan<char> APIName = apiName;
+    public readonly ReadOnlySpan<char> APIVersion = apiVersion;
+    public readonly ReadOnlySpan<char> MessageType = messageType;
+    public readonly ReadOnlySpan<char> RequestID = requestID;
+    public readonly ReadOnlySpan<char> Data = data;
+
+    public bool TryDeserializeJson(ReadOnlySpan<byte> utf8Json, out Packet packet)
+    {
+        Utf8JsonReader reader = new(utf8Json, VTSPackets.ReaderOptions);
+        char[] buffer = ArrayPool<char>.Shared.Rent(VTSPackets.Encoding.GetMaxCharCount(utf8Json.Length));
+        Packet result = new();
+        try
+        {
+            // TODO: Read all known json payload header properties.
+            // Note: Deserialize data by simply providing it as raw byte ReadOnlySpan or ReadOnlyMemory instead.
+            while (reader.Read())
+            {
+                switch (reader.TokenType)
+                {
+                    case JsonTokenType.PropertyName:
+                        throw new NotImplementedException();
+
+                    case JsonTokenType.String:
+                        throw new NotImplementedException();
+
+                    case JsonTokenType.StartObject:
+                        throw new NotImplementedException();
+
+                    case JsonTokenType.EndObject:
+                        throw new NotImplementedException();
+
+                    // Non applicable for this packet type.
+                    case JsonTokenType.StartArray:
+                    case JsonTokenType.EndArray:
+                    case JsonTokenType.None:
+                    case JsonTokenType.Number:
+                    case JsonTokenType.Comment:
+                    case JsonTokenType.True:
+                    case JsonTokenType.False:
+                    case JsonTokenType.Null:
+                        break;
+
+                    // Default case has to throw to better optimize jump-table branch prediction.
+                    default: throw new SwitchExpressionException(reader.TokenType);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ex.Out($"Failed to deserialize {nameof(Packet)}!");
+            if (Roaming.LogNetworkPackets)
+            {
+                try
+                {
+                    $"Failed packet: {VTSPackets.Encoding.GetString(utf8Json)}".Out(ConsoleColor.Red);
+                }
+                catch (Exception ex2) { ex2.Out($"Cannot log failed packet - error while decoding."); }
+            }
+        }
+        finally { ArrayPool<char>.Shared.Return(buffer); }
+    }
 }
 
 /// <summary>
